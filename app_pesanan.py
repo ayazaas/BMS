@@ -170,7 +170,7 @@ def build_receipt_image(nama_outlet, no_wa, alamat_pengiriman, timestamp, detail
 
 
 # ============ HEADER ============
-st.title("🛒 Form Pemesanan Outlet MR Fisik")
+st.title("🛒 Form Pemesanan Outlet MR\u00A0Fisik")
 st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
 # ============ INPUT DATA OUTLET ============
