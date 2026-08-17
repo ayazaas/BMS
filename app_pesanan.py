@@ -7,8 +7,8 @@ from google.oauth2.service_account import Credentials
 from PIL import Image, ImageDraw, ImageFont
 
 # ============ KONFIGURASI ============
-FILE_PRODUK = "produk_voucher.csv"  # kolom: provider, kode_voucher, produk, harga
-NAMA_WORKSHEET = "Pesanan"  # nama tab di Google Sheet
+NAMA_WORKSHEET_PESANAN = "Pesanan"  # nama tab di Google Sheet untuk simpan pesanan
+NAMA_WORKSHEET_PRODUK = "Produk"    # nama tab di Google Sheet untuk data produk
 
 st.set_page_config(page_title="Form Pesanan Outlet", page_icon="🛒", layout="centered")
 
@@ -24,12 +24,14 @@ def connect_sheet():
         st.secrets["gcp_service_account"], scopes=scopes
     )
     client = gspread.authorize(creds)
-    sheet = client.open_by_url(st.secrets["spreadsheet_url"])
-    return sheet.worksheet(NAMA_WORKSHEET)
+    spreadsheet = client.open_by_url(st.secrets["spreadsheet_url"])
+    ws_pesanan = spreadsheet.worksheet(NAMA_WORKSHEET_PESANAN)
+    ws_produk = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK)
+    return ws_pesanan, ws_produk
 
 
 try:
-    worksheet = connect_sheet()
+    worksheet, worksheet_produk = connect_sheet()
     sheet_ok = True
 except Exception as e:
     sheet_ok = False
@@ -38,20 +40,27 @@ except Exception as e:
         "spreadsheet_url) dan pastikan sheet sudah di-share ke email service account."
     )
     st.exception(e)
+    st.stop()
 
 
-@st.cache_data
-def load_produk():
-    df = pd.read_csv(FILE_PRODUK)
+# ============ LOAD DATA PRODUK (dari Google Sheets, auto-refresh tiap 60 detik) ============
+@st.cache_data(ttl=60)
+def load_produk(_worksheet_produk):
+    data = _worksheet_produk.get_all_records()
+    df = pd.DataFrame(data)
     df["harga"] = pd.to_numeric(df["harga"], errors="coerce").fillna(0).astype(int)
     return df
 
 
-produk_df = load_produk()
+produk_df = load_produk(worksheet_produk)
 
 # ============ SESSION STATE ============
 if "qty" not in st.session_state:
     st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
+else:
+    # sinkronkan qty kalau ada kode voucher baru yang baru ditambahkan di sheet
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty.setdefault(kode, 0)
 
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
