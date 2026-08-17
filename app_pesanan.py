@@ -63,26 +63,37 @@ if "show_success" not in st.session_state:
 
 def tambah(kode):
     st.session_state.qty[kode] += 1
+    st.session_state[f"qtyinput_{kode}"] = st.session_state.qty[kode]
 
 
 def kurang(kode):
     if st.session_state.qty[kode] > 0:
         st.session_state.qty[kode] -= 1
+    st.session_state[f"qtyinput_{kode}"] = st.session_state.qty[kode]
+
+
+def ubah_qty_manual(kode):
+    nilai = st.session_state.get(f"qtyinput_{kode}", 0)
+    if nilai is None or nilai < 0:
+        nilai = 0
+    st.session_state.qty[kode] = int(nilai)
 
 
 def format_rupiah(n):
     return f"Rp {n:,.0f}".replace(",", ".")
 
 
-def build_receipt_lines(nama_outlet, no_wa, timestamp, detail_pesanan, total_harga):
+def build_receipt_lines(nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga):
     lines = [
-        ("title", "STRUK PESANAN OUTLET"),
+        ("title", "STRUK PEMESANAN OUTLET MR FISIK"),
         ("sep", ""),
         ("normal", f"Tanggal : {timestamp}"),
         ("normal", f"Outlet  : {nama_outlet}"),
         ("normal", f"No. WA  : {no_wa}"),
-        ("sep", ""),
     ]
+    if alamat_pengiriman:
+        lines.append(("normal", f"Alamat  : {alamat_pengiriman}"))
+    lines.append(("sep", ""))
     for item in detail_pesanan:
         lines.append(("item", f"[{item['provider']}] {item['produk']} ({item['kode_voucher']})"))
         lines.append(
@@ -108,8 +119,8 @@ def _load_font(size, bold=False):
     return ImageFont.load_default()
 
 
-def build_receipt_image(nama_outlet, no_wa, timestamp, detail_pesanan, total_harga):
-    lines = build_receipt_lines(nama_outlet, no_wa, timestamp, detail_pesanan, total_harga)
+def build_receipt_image(nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga):
+    lines = build_receipt_lines(nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga)
 
     width = 480
     padding = 24
@@ -159,16 +170,19 @@ def build_receipt_image(nama_outlet, no_wa, timestamp, detail_pesanan, total_har
 
 
 # ============ HEADER ============
-st.title("🛒 Form Pesanan Outlet")
+st.title("🛒 Form Pemesanan Outlet MR Fisik")
 st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
 # ============ INPUT DATA OUTLET ============
 st.subheader("Data Outlet")
 col1, col2 = st.columns(2)
 with col1:
-    nama_outlet = st.text_input("Nama Outlet", placeholder="Toko Sumber Rejeki")
+    nama_outlet = st.text_input("Nama Outlet", placeholder="Konter ABC Cell")
 with col2:
     no_wa = st.text_input("No. WhatsApp", placeholder="08123456789")
+
+alamat_pengiriman = st.text_input("Alamat Pengiriman *", placeholder="Jl. Ahmad Yani No.2")
+st.caption("*Opsional, boleh dikosongkan")
 
 st.divider()
 
@@ -236,16 +250,17 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     st.caption(f"{row['provider']} · {kode}")
                     st.caption("⚠️ harga belum tersedia")
 
-                c_minus, c_qty, c_plus = st.columns([1, 1, 1])
+                c_minus, c_qty, c_plus = st.columns([1, 1.4, 1])
                 with c_minus:
                     st.button(
                         "➖", key=f"minus_{kode}", on_click=kurang, args=(kode,),
                         disabled=(harga == 0), use_container_width=True,
                     )
                 with c_qty:
-                    st.markdown(
-                        f"<div style='text-align:center; padding-top:8px; font-weight:600;'>{qty}</div>",
-                        unsafe_allow_html=True,
+                    st.number_input(
+                        "Qty", min_value=0, step=1, value=qty,
+                        key=f"qtyinput_{kode}", on_change=ubah_qty_manual, args=(kode,),
+                        disabled=(harga == 0), label_visibility="collapsed",
                     )
                 with c_plus:
                     st.button(
@@ -277,6 +292,7 @@ if st.button("🧾 Konfirmasi & Kirim Pesanan", type="primary", use_container_wi
                 timestamp,
                 nama_outlet,
                 no_wa,
+                alamat_pengiriman,
                 item["provider"],
                 item["kode_voucher"],
                 item["produk"],
@@ -293,7 +309,7 @@ if st.button("🧾 Konfirmasi & Kirim Pesanan", type="primary", use_container_wi
             # siapkan struk (gambar PNG) untuk didownload, disimpan di session_state
             # supaya masih ada setelah st.rerun()
             st.session_state.last_receipt = build_receipt_image(
-                nama_outlet, no_wa, timestamp, detail_pesanan, total_harga
+                nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga
             )
             nama_file_aman = nama_outlet.strip().replace(" ", "_")
             st.session_state.last_receipt_name = (
