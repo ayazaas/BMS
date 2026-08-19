@@ -11,8 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 # ============================================================
 # KONFIGURASI
 # ============================================================
+
 NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK = "Produk"
+NAMA_WORKSHEET_STATUS = "StatusKirim"
 
 st.set_page_config(
     page_title="Form Pesanan Outlet",
@@ -21,562 +23,713 @@ st.set_page_config(
 )
 
 # ============================================================
-# CSS + FLOATING SCROLL CONTROLLER + QTY BOX GABUNGAN
+# CSS + FLOATING SCROLL CONTROLLER
 # ============================================================
+
 st.html(
     """
-    <style>
-    /* ========================================================
-       GLOBAL MOBILE / DESKTOP
-       ======================================================== */
-    .block-container {
-        padding-top: clamp(1rem, 3vw, 2.5rem) !important;
-        padding-bottom: 5rem !important;
-    }
+<style>
+/* ========================================================
+   GLOBAL MOBILE / DESKTOP
+   ======================================================== */
+.block-container {
+    padding-top: clamp(1rem, 3vw, 2.5rem) !important;
+    padding-bottom: 5rem !important;
+}
 
-    /* ========================================================
-       PRODUCT CARD
-       ======================================================== */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 14px !important;
-        padding: 0.75rem !important;
-    }
+/* ========================================================
+   PRODUCT CARD
+   ======================================================== */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 14px !important;
+    padding: 0.75rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stHorizontalBlock"] > div {
-        min-width: 0 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
 
-    /* Rapatkan jarak antar elemen di dalam kartu produk
-       (nama produk, provider/kode, harga, qty box) supaya
-       tidak makan tempat dan terlihat minimalis/formal. */
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.05rem !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stVerticalBlock"] {
+    gap: 0.05rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="element-container"] {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="element-container"] {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    [data-testid="stCaptionContainer"] p {
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.25 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stMarkdownContainer"] p,
+div[data-testid="stVerticalBlockBorderWrapper"]
+[data-testid="stCaptionContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.25 !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
-        width: 100% !important;
-        min-width: 0 !important;
-        height: 40px !important;
-        min-height: 40px !important;
-        padding: 0 !important;
-        border-radius: 10px !important;
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-    }
+/* ========================================================
+    QTY BOX: - | ANGKA | +
+    Target langsung via key agar tidak bergantung pada posisi DOM.
+    ======================================================== */
+div[class*="st-key-qtybox-"] {
+    margin-top: 0.4rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button p,
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button div {
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-    }
+div[class*="st-key-qtybox-"]
+div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    border: 1px solid rgba(49, 51, 63, 0.20) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    background: rgba(250, 250, 250, 0.8) !important;
+}
 
-    /* ========================================================
-       QTY BOX GABUNGAN ( - | angka | + ) JADI SATU PIL
-       ======================================================== */
-    div[class*="st-key-qtybox-"] {
-        margin-top: 0.4rem !important;
-    }
+div[class*="st-key-qtybox-"]
+div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        align-items: stretch !important;
-        gap: 0 !important;
-        border: 1px solid rgba(49, 51, 63, 0.20);
-        border-radius: 10px;
-        overflow: hidden;
-        background: rgba(250, 250, 250, 0.8);
-    }
+div[class*="st-key-qty_minus_"],
+div[class*="st-key-qty_plus_"] {
+    width: 100% !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
-        min-width: 0 !important;
-    }
+div[class*="st-key-qty_minus_"] button,
+div[class*="st-key-qty_plus_"] button {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #30323d !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
 
-    /* tombol - dan + custom: hilangkan border/radius individual */
-    div[class*="st-key-qtybox-"] .stButton > button {
-        border: none !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        height: 40px !important;
-    }
+div[class*="st-key-qty_minus_"] button *,
+div[class*="st-key-qty_plus_"] button * {
+    color: #30323d !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:first-child .stButton > button {
-        border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
-    }
+div[class*="st-key-qty_minus_"] button:hover,
+div[class*="st-key-qty_plus_"] button:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #111 !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:last-child .stButton > button {
-        border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
-    }
+div[class*="st-key-qty_minus_"] button:active,
+div[class*="st-key-qty_plus_"] button:active {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
 
-    /* input angka di tengah: transparan, nyatu, center text */
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] {
-        background: transparent !important;
-    }
+div[class*="st-key-qty_minus_"] {
+    border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input {
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        text-align: center !important;
-        height: 40px !important;
-        font-weight: 700 !important;
-    }
+div[class*="st-key-qty_plus_"] {
+    border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
 
-    /* sembunyikan tombol +/- bawaan number_input (pakai tombol custom sendiri) */
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepUp"],
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepDown"] {
-        display: none !important;
-    }
+div[class*="st-key-qty_minus_"] button p,
+div[class*="st-key-qty_minus_"] button div,
+div[class*="st-key-qty_plus_"] button p,
+div[class*="st-key-qty_plus_"] button div {
+    color: #30323d !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
 
-    /* sembunyikan teks "Press Enter to apply" */
-    div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
-        display: none !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
+    width: 100% !important;
+    background: transparent !important;
+}
 
-    /* ========================================================
-       FLOATING SCROLL CONTROLLER
-       ======================================================== */
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] > div {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 4px !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    color: #30323d !important;
+}
+
+div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
+    display: none !important;
+}
+
+div[class*="st-key-qtybox-"] .stButton > button:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #111 !important;
+}
+
+div[class*="st-key-qtybox-"] .stButton > button:active {
+    background: rgba(0, 0, 0, 0.08) !important;
+    transform: none !important;
+}
+
+/* ========================================================
+   PANEL ADMIN
+   ======================================================== */
+section[data-testid="stSidebar"]
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 10px !important;
+    padding: 0.7rem 0.85rem !important;
+}
+
+.wg-admin-card-total {
+    font-size: 0.86rem;
+    color: rgba(49, 51, 63, 0.72);
+}
+
+.wg-admin-empty {
+    color: rgba(49, 51, 63, 0.55);
+    font-size: 0.85rem;
+    padding: 0.35rem 0;
+}
+
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0 !important;
+}
+
+/* ========================================================
+   ADMIN ACTION BUTTONS
+   Kirim WhatsApp dan Tandai/Batalkan dibuat sama tinggi
+   ======================================================== */
+.wg-admin-actions {
+    width: 100% !important;
+}
+
+.wg-admin-actions .stButton,
+.wg-admin-actions [data-testid="stLinkButton"] {
+    width: 100% !important;
+}
+
+.wg-admin-actions .stButton > button,
+.wg-admin-actions [data-testid="stLinkButton"] {
+    width: 100% !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 0.65rem !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+}
+
+.wg-admin-actions .stButton > button p,
+.wg-admin-actions .stButton > button div,
+.wg-admin-actions [data-testid="stLinkButton"] p,
+.wg-admin-actions [data-testid="stLinkButton"] div {
+    margin: 0 !important;
+    line-height: 1.1 !important;
+}
+
+/* ========================================================
+   ADMIN FULLSCREEN
+   ======================================================== */
+body.wg-admin-fullscreen section[data-testid="stSidebar"] {
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    z-index: 1000000 !important;
+}
+
+body.wg-admin-fullscreen section[data-testid="stSidebar"] > div {
+    width: 100vw !important;
+}
+
+body.wg-admin-fullscreen section[data-testid="stSidebarContent"] {
+    max-width: 1180px !important;
+    margin: 0 auto !important;
+    padding: 2rem clamp(1rem, 4vw, 3rem) 4rem !important;
+}
+
+body.wg-admin-fullscreen .main {
+    visibility: hidden !important;
+}
+
+/* ========================================================
+   FLOATING SCROLL CONTROLLER
+   ======================================================== */
+.wg-scroll-rail {
+    position: fixed;
+    right: max(6px, env(safe-area-inset-right));
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 999999;
+    width: clamp(34px, 8vw, 42px);
+    height: min(58vh, 430px);
+    max-height: calc(100dvh - 120px);
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.wg-scroll-btn {
+    width: clamp(32px, 8vw, 38px);
+    height: clamp(32px, 8vw, 38px);
+    flex: 0 0 auto;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.96);
+    color: #555;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.wg-scroll-btn:active {
+    transform: scale(0.92);
+    background: #f2f2f2;
+}
+
+.wg-scroll-track {
+    position: relative;
+    flex: 1 1 auto;
+    width: 7px;
+    min-height: 110px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.09);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+    cursor: pointer;
+    touch-action: none;
+}
+
+.wg-scroll-track::before {
+    content: "";
+    position: absolute;
+    left: -13px;
+    right: -13px;
+    top: 0;
+    bottom: 0;
+}
+
+.wg-scroll-thumb {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 7px;
+    min-height: 30px;
+    border-radius: 999px;
+    background: rgba(80,80,80,0.55);
+    pointer-events: none;
+    will-change: transform, height;
+}
+
+@media (max-width: 600px) {
     .wg-scroll-rail {
-        position: fixed;
-        right: max(6px, env(safe-area-inset-right));
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 999999;
-        width: clamp(34px, 8vw, 42px);
-        height: min(58vh, 430px);
-        max-height: calc(100dvh - 120px);
-        min-height: 190px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 7px;
-        pointer-events: auto;
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
+        right: max(4px, env(safe-area-inset-right));
+        height: min(48vh, 340px);
+        min-height: 170px;
     }
 
-    .wg-scroll-btn {
-        width: clamp(32px, 8vw, 38px);
-        height: clamp(32px, 8vw, 38px);
-        flex: 0 0 auto;
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 50%;
-        background: rgba(255,255,255,0.96);
-        color: #555;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.14);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
-        line-height: 1;
-        cursor: pointer;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
+    div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input,
+    div[class*="st-key-qtybox-"] .stButton > button {
+        height: 42px !important;
+        min-height: 42px !important;
+        max-height: 42px !important;
     }
 
-    .wg-scroll-btn:active {
-        transform: scale(0.92);
-        background: #f2f2f2;
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        padding: 0.65rem !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .wg-scroll-rail {
+        width: 32px;
+        height: min(44vh, 300px);
     }
 
-    .wg-scroll-track {
-        position: relative;
-        flex: 1 1 auto;
-        width: 7px;
-        min-height: 110px;
-        border-radius: 999px;
-        background: rgba(0,0,0,0.09);
-        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
-        cursor: pointer;
-        touch-action: none;
-    }
-
-    .wg-scroll-track::before {
-        content: "";
-        position: absolute;
-        left: -13px;
-        right: -13px;
-        top: 0;
-        bottom: 0;
-    }
-
+    .wg-scroll-track,
     .wg-scroll-thumb {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 7px;
-        min-height: 30px;
-        border-radius: 999px;
-        background: rgba(80,80,80,0.55);
-        pointer-events: none;
-        will-change: transform, height;
+        width: 6px;
+    }
+}
+
+@media (max-width: 600px) {
+    .block-container {
+        padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
     }
 
-    @media (max-width: 600px) {
-        .wg-scroll-rail {
-            right: max(4px, env(safe-area-inset-right));
-            height: min(48vh, 340px);
-            min-height: 170px;
-        }
-
-        div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input,
-        div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
-            height: 42px !important;
-            min-height: 42px !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.65rem !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"]
-        div[data-testid="stVerticalBlock"] {
-            gap: 0.05rem !important;
-        }
+    .wg-admin-actions .stButton > button,
+    .wg-admin-actions [data-testid="stLinkButton"] {
+        height: 42px !important;
+        min-height: 42px !important;
+        max-height: 42px !important;
+        font-size: 0.88rem !important;
     }
+}
+</style>
 
-    @media (max-width: 380px) {
-        .wg-scroll-rail {
-            width: 32px;
-            height: min(44vh, 300px);
-        }
+<div class="wg-scroll-rail" id="wgScrollRail" aria-label="Kontrol scroll">
+    <button class="wg-scroll-btn" id="wgScrollUp"
+            type="button" aria-label="Scroll ke atas" title="Scroll ke atas">↑</button>
 
-        .wg-scroll-track {
-            width: 6px;
-        }
-
-        .wg-scroll-thumb {
-            width: 6px;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .block-container {
-            padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
-        }
-    }
-    </style>
-
-    <div class="wg-scroll-rail" id="wgScrollRail" aria-label="Kontrol scroll">
-        <button class="wg-scroll-btn" id="wgScrollUp"
-                type="button" aria-label="Scroll ke atas" title="Scroll ke atas">↑</button>
-
-        <div class="wg-scroll-track" id="wgScrollTrack"
-             aria-label="Posisi halaman" title="Klik atau geser posisi scroll">
-            <div class="wg-scroll-thumb" id="wgScrollThumb"></div>
-        </div>
-
-        <button class="wg-scroll-btn" id="wgScrollDown"
-                type="button" aria-label="Scroll ke bawah" title="Scroll ke bawah">↓</button>
+    <div class="wg-scroll-track" id="wgScrollTrack"
+         aria-label="Posisi halaman" title="Klik atau geser posisi scroll">
+        <div class="wg-scroll-thumb" id="wgScrollThumb"></div>
     </div>
 
-    <script>
-    (() => {
-        const root = document.getElementById("wgScrollRail");
-        const up = document.getElementById("wgScrollUp");
-        const down = document.getElementById("wgScrollDown");
-        const track = document.getElementById("wgScrollTrack");
-        const thumb = document.getElementById("wgScrollThumb");
+    <button class="wg-scroll-btn" id="wgScrollDown"
+            type="button" aria-label="Scroll ke bawah" title="Scroll ke bawah">↓</button>
+</div>
 
-        if (!root || !up || !down || !track || !thumb) return;
+<script>
+(() => {
+    const root = document.getElementById("wgScrollRail");
+    const up = document.getElementById("wgScrollUp");
+    const down = document.getElementById("wgScrollDown");
+    const track = document.getElementById("wgScrollTrack");
+    const thumb = document.getElementById("wgScrollThumb");
 
-        const doc = document;
+    if (!root || !up || !down || !track || !thumb) return;
 
-        function isScrollable(el) {
-            if (!el) return false;
-            return el.scrollHeight > el.clientHeight + 8;
+    const doc = document;
+
+    function isScrollable(el) {
+        if (!el) return false;
+        return el.scrollHeight > el.clientHeight + 8;
+    }
+
+    function getScrollTarget() {
+        const candidates = [
+            doc.querySelector('[data-testid="stAppViewContainer"]'),
+            doc.querySelector('[data-testid="stMain"]'),
+            doc.querySelector('section.main'),
+            doc.scrollingElement,
+            doc.documentElement,
+            doc.body
+        ];
+
+        for (const el of candidates) {
+            if (isScrollable(el)) return el;
         }
 
-        function getScrollTarget() {
-            const candidates = [
-                doc.querySelector('[data-testid="stAppViewContainer"]'),
-                doc.querySelector('[data-testid="stMain"]'),
-                doc.querySelector('section.main'),
-                doc.scrollingElement,
-                doc.documentElement,
-                doc.body
-            ];
+        return null;
+    }
 
-            for (const el of candidates) {
-                if (isScrollable(el)) return el;
-            }
+    function getState() {
+        const target = getScrollTarget();
 
-            return null;
-        }
-
-        function getState() {
-            const target = getScrollTarget();
-
-            if (!target) {
-                return {
-                    target: null,
-                    top: window.scrollY || 0,
-                    max: Math.max(
-                        0,
-                        doc.documentElement.scrollHeight - window.innerHeight
-                    ),
-                    viewport: window.innerHeight,
-                    total: doc.documentElement.scrollHeight
-                };
-            }
-
-            const max = Math.max(0, target.scrollHeight - target.clientHeight);
-
+        if (!target) {
             return {
-                target,
-                top: target.scrollTop || 0,
-                max,
-                viewport: target.clientHeight,
-                total: target.scrollHeight
+                target: null,
+                top: window.scrollY || 0,
+                max: Math.max(
+                    0,
+                    doc.documentElement.scrollHeight - window.innerHeight
+                ),
+                viewport: window.innerHeight,
+                total: doc.documentElement.scrollHeight
             };
         }
 
-        function scrollToPosition(top, smooth = true) {
-            const state = getState();
-            const safeTop = Math.max(0, Math.min(top, state.max));
+        const max = Math.max(0, target.scrollHeight - target.clientHeight);
 
-            if (state.target) {
-                try {
-                    state.target.scrollTo({
-                        top: safeTop,
-                        left: 0,
-                        behavior: smooth ? "smooth" : "auto"
-                    });
-                    return;
-                } catch (e) {
-                    state.target.scrollTop = safeTop;
-                    return;
-                }
-            }
+        return {
+            target,
+            top: target.scrollTop || 0,
+            max,
+            viewport: target.clientHeight,
+            total: target.scrollHeight
+        };
+    }
 
-            window.scrollTo({
-                top: safeTop,
-                left: 0,
-                behavior: smooth ? "smooth" : "auto"
-            });
-        }
+    function scrollToPosition(top, smooth = true) {
+        const state = getState();
+        const safeTop = Math.max(0, Math.min(top, state.max));
 
-        function scrollByAmount(direction) {
-            const state = getState();
-            const amount = Math.max(
-                180,
-                Math.min(520, Math.round(state.viewport * 0.72))
-            );
-            scrollToPosition(state.top + direction * amount, true);
-        }
-
-        function updateThumb() {
-            const state = getState();
-            const trackHeight = track.clientHeight;
-
-            if (!trackHeight) return;
-
-            if (state.max <= 0) {
-                thumb.style.height = trackHeight + "px";
-                thumb.style.transform = "translateY(0)";
+        if (state.target) {
+            try {
+                state.target.scrollTo({
+                    top: safeTop,
+                    left: 0,
+                    behavior: smooth ? "smooth" : "auto"
+                });
+                return;
+            } catch (e) {
+                state.target.scrollTop = safeTop;
                 return;
             }
-
-            const visibleRatio = state.total > 0
-                ? Math.min(1, state.viewport / state.total)
-                : 1;
-
-            const thumbHeight = Math.max(
-                30,
-                Math.min(trackHeight, trackHeight * visibleRatio)
-            );
-
-            const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
-            const ratio = state.max > 0 ? state.top / state.max : 0;
-
-            thumb.style.height = thumbHeight + "px";
-            thumb.style.transform =
-                "translateY(" + (ratio * maxThumbTop) + "px)";
         }
 
-        up.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            scrollByAmount(-1);
-        }, { passive: false });
-
-        down.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            scrollByAmount(1);
-        }, { passive: false });
-
-        track.addEventListener("click", (event) => {
-            if (event.target === thumb) return;
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            const state = getState();
-            if (state.max <= 0) return;
-
-            const rect = track.getBoundingClientRect();
-            const ratio = Math.max(
-                0,
-                Math.min(1, (event.clientY - rect.top) / rect.height)
-            );
-
-            scrollToPosition(ratio * state.max, true);
-        }, { passive: false });
-
-        let dragging = false;
-
-        function dragTo(clientY) {
-            const state = getState();
-            const rect = track.getBoundingClientRect();
-
-            const visibleRatio = state.total > 0
-                ? Math.min(1, state.viewport / state.total)
-                : 1;
-
-            const thumbHeight = Math.max(
-                30,
-                Math.min(track.clientHeight, track.clientHeight * visibleRatio)
-            );
-
-            const maxThumbTop = Math.max(
-                0,
-                track.clientHeight - thumbHeight
-            );
-
-            if (maxThumbTop <= 0 || state.max <= 0) return;
-
-            const y = Math.max(
-                0,
-                Math.min(maxThumbTop, clientY - rect.top - thumbHeight / 2)
-            );
-
-            scrollToPosition((y / maxThumbTop) * state.max, false);
-        }
-
-        thumb.addEventListener("pointerdown", (event) => {
-            dragging = true;
-            thumb.setPointerCapture?.(event.pointerId);
-            event.preventDefault();
-            event.stopPropagation();
-        }, { passive: false });
-
-        track.addEventListener("pointermove", (event) => {
-            if (!dragging) return;
-            dragTo(event.clientY);
-            event.preventDefault();
-        }, { passive: false });
-
-        track.addEventListener("pointerup", (event) => {
-            dragging = false;
-            event.preventDefault();
-        }, { passive: false });
-
-        track.addEventListener("pointercancel", () => {
-            dragging = false;
+        window.scrollTo({
+            top: safeTop,
+            left: 0,
+            behavior: smooth ? "smooth" : "auto"
         });
+    }
 
-        let currentTarget = null;
+    function scrollByAmount(direction) {
+        const state = getState();
+        const amount = Math.max(
+            180,
+            Math.min(520, Math.round(state.viewport * 0.72))
+        );
+        scrollToPosition(state.top + direction * amount, true);
+    }
 
-        function bindScrollListener() {
-            const target = getScrollTarget();
+    function updateThumb() {
+        const state = getState();
+        const trackHeight = track.clientHeight;
 
-            if (target !== currentTarget) {
-                if (currentTarget) {
-                    currentTarget.removeEventListener("scroll", updateThumb);
-                }
+        if (!trackHeight) return;
 
-                currentTarget = target;
+        if (state.max <= 0) {
+            thumb.style.height = trackHeight + "px";
+            thumb.style.transform = "translateY(0)";
+            return;
+        }
 
-                if (currentTarget) {
-                    currentTarget.addEventListener(
-                        "scroll",
-                        updateThumb,
-                        { passive: true }
-                    );
-                }
+        const visibleRatio = state.total > 0
+            ? Math.min(1, state.viewport / state.total)
+            : 1;
+
+        const thumbHeight = Math.max(
+            30,
+            Math.min(trackHeight, trackHeight * visibleRatio)
+        );
+
+        const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
+        const ratio = state.max > 0 ? state.top / state.max : 0;
+
+        thumb.style.height = thumbHeight + "px";
+        thumb.style.transform =
+            "translateY(" + (ratio * maxThumbTop) + "px)";
+    }
+
+    up.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollByAmount(-1);
+    });
+
+    down.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollByAmount(1);
+    });
+
+    track.addEventListener("click", (event) => {
+        if (event.target === thumb) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const state = getState();
+        if (state.max <= 0) return;
+
+        const rect = track.getBoundingClientRect();
+        const ratio = Math.max(
+            0,
+            Math.min(1, (event.clientY - rect.top) / rect.height)
+        );
+
+        scrollToPosition(ratio * state.max, true);
+    });
+
+    let dragging = false;
+
+    function dragTo(clientY) {
+        const state = getState();
+        const rect = track.getBoundingClientRect();
+
+        const visibleRatio = state.total > 0
+            ? Math.min(1, state.viewport / state.total)
+            : 1;
+
+        const thumbHeight = Math.max(
+            30,
+            Math.min(track.clientHeight, track.clientHeight * visibleRatio)
+        );
+
+        const maxThumbTop = Math.max(
+            0,
+            track.clientHeight - thumbHeight
+        );
+
+        if (maxThumbTop <= 0 || state.max <= 0) return;
+
+        const y = Math.max(
+            0,
+            Math.min(maxThumbTop, clientY - rect.top - thumbHeight / 2)
+        );
+
+        scrollToPosition((y / maxThumbTop) * state.max, false);
+    }
+
+    thumb.addEventListener("pointerdown", (event) => {
+        dragging = true;
+        thumb.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        event.stopPropagation();
+    });
+
+    track.addEventListener("pointermove", (event) => {
+        if (!dragging) return;
+        dragTo(event.clientY);
+        event.preventDefault();
+    });
+
+    track.addEventListener("pointerup", (event) => {
+        dragging = false;
+        event.preventDefault();
+    });
+
+    track.addEventListener("pointercancel", () => {
+        dragging = false;
+    });
+
+    let currentTarget = null;
+
+    function bindScrollListener() {
+        const target = getScrollTarget();
+
+        if (target !== currentTarget) {
+            if (currentTarget) {
+                currentTarget.removeEventListener("scroll", updateThumb);
             }
 
-            updateThumb();
+            currentTarget = target;
+
+            if (currentTarget) {
+                currentTarget.addEventListener(
+                    "scroll",
+                    updateThumb,
+                    { passive: true }
+                );
+            }
         }
 
+        updateThumb();
+    }
+
+    bindScrollListener();
+
+    const observer = new MutationObserver(() => {
         bindScrollListener();
+    });
 
-        const observer = new MutationObserver(() => {
-            bindScrollListener();
-        });
+    observer.observe(doc.body, {
+        childList: true,
+        subtree: true
+    });
 
-        observer.observe(doc.body, {
-            childList: true,
-            subtree: true
-        });
+    window.addEventListener("scroll", updateThumb, { passive: true });
+    window.addEventListener("resize", updateThumb);
 
-        window.addEventListener("scroll", updateThumb, { passive: true });
-        window.addEventListener("resize", updateThumb);
-
-        setTimeout(bindScrollListener, 100);
-        setTimeout(bindScrollListener, 500);
-        setTimeout(bindScrollListener, 1200);
-        setTimeout(bindScrollListener, 2500);
-        setTimeout(bindScrollListener, 5000);
-    })();
-    </script>
-    """,
+    setTimeout(bindScrollListener, 100);
+    setTimeout(bindScrollListener, 500);
+    setTimeout(bindScrollListener, 1200);
+    setTimeout(bindScrollListener, 2500);
+    setTimeout(bindScrollListener, 5000);
+})();
+</script>
+""",
     unsafe_allow_javascript=True,
 )
 
 # ============================================================
 # KONEKSI GOOGLE SHEETS
 # ============================================================
+
 @st.cache_resource
 def connect_sheet():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
+
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=scopes,
     )
+
     client = gspread.authorize(creds)
     spreadsheet = client.open_by_url(st.secrets["spreadsheet_url"])
+
     ws_pesanan = spreadsheet.worksheet(NAMA_WORKSHEET_PESANAN)
     ws_produk = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK)
-    return ws_pesanan, ws_produk
+
+    try:
+        ws_status = spreadsheet.worksheet(NAMA_WORKSHEET_STATUS)
+    except gspread.exceptions.WorksheetNotFound:
+        ws_status = spreadsheet.add_worksheet(
+            title=NAMA_WORKSHEET_STATUS,
+            rows=1000,
+            cols=3,
+        )
+        ws_status.append_row(
+            ["order_id", "status_kirim", "waktu_ditandai"],
+            value_input_option="USER_ENTERED",
+        )
+
+    return ws_pesanan, ws_produk, ws_status
 
 
 try:
-    worksheet, worksheet_produk = connect_sheet()
+    worksheet, worksheet_produk, worksheet_status = connect_sheet()
     sheet_ok = True
 except Exception as e:
     sheet_ok = False
@@ -591,6 +744,7 @@ except Exception as e:
 # ============================================================
 # LOAD PRODUK
 # ============================================================
+
 @st.cache_data(ttl=60)
 def load_produk(_worksheet_produk):
     data = _worksheet_produk.get_all_records()
@@ -604,6 +758,7 @@ def load_produk(_worksheet_produk):
         .fillna(0)
         .astype(int)
     )
+
     return df
 
 
@@ -616,6 +771,7 @@ if produk_df.empty:
 # ============================================================
 # SESSION STATE
 # ============================================================
+
 if "qty" not in st.session_state:
     st.session_state.qty = {
         kode: 0 for kode in produk_df["kode_voucher"]
@@ -639,29 +795,50 @@ if "last_wa_link" not in st.session_state:
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
-# Reset qty dilakukan SEBELUM kartu produk dibuat.
+# ============================================================
+# QUANTITY STATE
+# ============================================================
+# Hanya satu sumber data: st.session_state.qty.
+# Tidak ada state dengan key qtyinput_*, sehingga tidak mungkin terjadi
+# konflik antara default value widget dan Session State API.
+if "qty" not in st.session_state:
+    st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
+else:
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty.setdefault(kode, 0)
+
+if "last_receipt" not in st.session_state:
+    st.session_state.last_receipt = None
+if "last_receipt_name" not in st.session_state:
+    st.session_state.last_receipt_name = None
+if "show_success" not in st.session_state:
+    st.session_state.show_success = False
+if "last_wa_link" not in st.session_state:
+    st.session_state.last_wa_link = None
+if "last_order_id" not in st.session_state:
+    st.session_state.last_order_id = None
+
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
-        st.session_state[f"qtyinput_{kode}"] = 0
     st.session_state["_do_reset_qty"] = False
 
 
+def _parse_qty(value):
+    try:
+        return max(0, int(str(value).strip() or "0"))
+    except (TypeError, ValueError):
+        return 0
+
+
 def tambah(kode):
-    baru = st.session_state.qty.get(kode, 0) + 1
-    st.session_state.qty[kode] = baru
-    st.session_state[f"qtyinput_{kode}"] = baru
+    st.session_state.qty[kode] = st.session_state.qty.get(kode, 0) + 1
 
 
 def kurang(kode):
-    baru = max(0, st.session_state.qty.get(kode, 0) - 1)
-    st.session_state.qty[kode] = baru
-    st.session_state[f"qtyinput_{kode}"] = baru
-
-
-def set_qty_dari_input(kode):
-    nilai = st.session_state.get(f"qtyinput_{kode}", 0)
-    st.session_state.qty[kode] = max(0, int(nilai or 0))
+    st.session_state.qty[kode] = max(
+        0, st.session_state.qty.get(kode, 0) - 1
+    )
 
 
 def format_rupiah(n):
@@ -929,14 +1106,65 @@ def build_receipt_image(
 
 
 # ============================================================
+# HELPER STATUS KIRIM
+# ============================================================
+
+def get_status_map(ws_status):
+    """Baca worksheet StatusKirim -> dict {order_id: True/False}."""
+    try:
+        data = ws_status.get_all_records()
+    except Exception:
+        return {}
+
+    status_map = {}
+
+    for r in data:
+        oid = str(r.get("order_id", "")).strip()
+
+        if not oid:
+            continue
+
+        nilai = str(r.get("status_kirim", "")).strip().upper()
+        status_map[oid] = nilai == "TRUE"
+
+    return status_map
+
+
+def tandai_terkirim(ws_status, order_id):
+    """Catat order_id sebagai sudah terkirim."""
+    ws_status.append_row(
+        [
+            order_id,
+            "TRUE",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ],
+        value_input_option="USER_ENTERED",
+    )
+
+
+def batalkan_tandai(ws_status, order_id):
+    """Undo: hapus baris status_kirim untuk order_id."""
+    try:
+        sel = ws_status.findall(order_id)
+    except Exception:
+        sel = []
+
+    for cell in sorted(sel, key=lambda c: c.row, reverse=True):
+        if cell.col == 1:
+            ws_status.delete_rows(cell.row)
+
+
+# ============================================================
 # HEADER
 # ============================================================
+
 st.title("🛒 Form Pemesanan Outlet Toko WG")
 st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
 # ============================================================
 # DATA OUTLET
 # ============================================================
+
 st.subheader("Data Outlet")
 
 col1, col2 = st.columns(2)
@@ -964,6 +1192,7 @@ st.divider()
 # ============================================================
 # FILTER PRODUK
 # ============================================================
+
 st.subheader("Pilih Produk")
 
 daftar_provider = [
@@ -991,6 +1220,7 @@ if provider_terpilih != "Semua Provider":
 
 if keyword:
     kw = keyword.lower()
+
     produk_tampil = produk_tampil[
         produk_tampil["produk"]
         .astype(str)
@@ -1008,8 +1238,9 @@ st.caption(
 )
 
 # ============================================================
-# HITUNG TOTAL DARI SEMUA PRODUK
+# HITUNG TOTAL
 # ============================================================
+
 total_harga = 0
 detail_pesanan = []
 
@@ -1035,6 +1266,7 @@ for _, row in produk_df.iterrows():
 # ============================================================
 # DAFTAR PRODUK
 # ============================================================
+
 produk_list = produk_tampil.to_dict("records")
 JUMLAH_KOLOM = 3
 
@@ -1059,13 +1291,8 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                 else:
                     st.caption("⚠️ Harga belum tersedia")
 
-                # ====================================================
-                # QUANTITY CONTROL: satu kotak pil [-][angka][+]
-                # Angka pakai number_input (tetap bisa diketik manual),
-                # tombol +/- bawaan number_input disembunyikan via CSS,
-                # digantikan tombol custom di kiri-kanan.
-                # ====================================================
                 qty_box = st.container(key=f"qtybox-{kode}")
+
                 with qty_box:
                     c_minus, c_qty, c_plus = st.columns(
                         [1, 1.6, 1],
@@ -1074,45 +1301,51 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     )
 
                     with c_minus:
-                        st.button(
-                            "−",
-                            key=f"minus_{kode}",
-                            on_click=kurang,
-                            args=(kode,),
-                            disabled=(harga == 0),
-                            use_container_width=True,
-                            help="Kurangi jumlah",
-                        )
+                        with st.container(key=f"qty_minus_{kode}"):
+                            st.button(
+                                "−",
+                                key=f"qty_minus_{kode}_btn",
+                                on_click=kurang,
+                                args=(kode,),
+                                disabled=(harga == 0),
+                                use_container_width=True,
+                            )
 
                     with c_qty:
-                        st.number_input(
-                            "Jumlah",
-                            min_value=0,
-                            step=1,
-                            value=qty_sekarang,
-                            key=f"qtyinput_{kode}",
-                            on_change=set_qty_dari_input,
-                            args=(kode,),
+                        # Widget input TIDAK memakai key Session State.
+                        # Nilainya selalu berasal dari qty sebagai satu-satunya
+                        # sumber data. Ini sengaja untuk menghindari seluruh
+                        # konflik "default value + Session State API".
+                        teks_qty = st.text_input(
+                            f"Jumlah {kode}",
+                            value=str(qty_sekarang),
                             disabled=(harga == 0),
                             label_visibility="collapsed",
+                            placeholder="0",
                         )
 
+                        # Saat user mengetik, langsung sinkronkan ke qty.
+                        nilai_ketik = _parse_qty(teks_qty)
+                        if nilai_ketik != st.session_state.qty.get(kode, 0):
+                            st.session_state.qty[kode] = nilai_ketik
+
                     with c_plus:
-                        st.button(
-                            "+",
-                            key=f"plus_{kode}",
-                            on_click=tambah,
-                            args=(kode,),
-                            disabled=(harga == 0),
-                            use_container_width=True,
-                            help="Tambah jumlah",
-                        )
+                        with st.container(key=f"qty_plus_{kode}"):
+                            st.button(
+                                "+",
+                                key=f"qty_plus_{kode}_btn",
+                                on_click=tambah,
+                                args=(kode,),
+                                disabled=(harga == 0),
+                                use_container_width=True,
+                            )
 
 st.divider()
 
 # ============================================================
 # RINGKASAN
 # ============================================================
+
 if detail_pesanan:
     with st.expander(
         f"🧾 Ringkasan pesanan "
@@ -1125,17 +1358,18 @@ if detail_pesanan:
             hide_index=True,
         )
 
-col_total1, col_total2 = st.columns([2, 1])
+    col_total1, col_total2 = st.columns([2, 1])
 
-with col_total2:
-    st.metric(
-        "Total Pesanan",
-        format_rupiah(total_harga),
-    )
+    with col_total2:
+        st.metric(
+            "Total Pesanan",
+            format_rupiah(total_harga),
+        )
 
 # ============================================================
 # SIMPAN PESANAN
 # ============================================================
+
 if st.button(
     "🧾 Konfirmasi & Kirim Pesanan",
     type="primary",
@@ -1182,16 +1416,14 @@ if st.button(
                 value_input_option="USER_ENTERED",
             )
 
-            st.session_state.last_receipt = (
-                build_receipt_image(
-                    order_id,
-                    nama_outlet,
-                    no_wa,
-                    alamat_pengiriman,
-                    timestamp,
-                    detail_pesanan,
-                    total_harga,
-                )
+            st.session_state.last_receipt = build_receipt_image(
+                order_id,
+                nama_outlet,
+                no_wa,
+                alamat_pengiriman,
+                timestamp,
+                detail_pesanan,
+                total_harga,
             )
 
             nama_file_aman = (
@@ -1222,7 +1454,6 @@ if st.button(
             st.session_state.last_order_id = order_id
             st.session_state.show_success = True
 
-            # Reset pada rerun berikutnya, sebelum widget produk dibuat.
             st.session_state["_do_reset_qty"] = True
             st.rerun()
 
@@ -1235,6 +1466,7 @@ if st.button(
 # ============================================================
 # STATUS SUKSES
 # ============================================================
+
 if (
     st.session_state.show_success
     and st.session_state.last_receipt
@@ -1249,13 +1481,6 @@ if (
         caption="Preview Struk Pesanan",
         width=340,
     )
-
-    if st.session_state.last_wa_link:
-        st.link_button(
-            "📩 Kirim Nota via WhatsApp",
-            st.session_state.last_wa_link,
-            use_container_width=True,
-        )
 
     dl_col, close_col = st.columns([3, 1])
 
@@ -1275,3 +1500,339 @@ if (
         ):
             st.session_state.show_success = False
             st.rerun()
+
+# ============================================================
+# PANEL ADMIN — SIDEBAR
+# ============================================================
+
+if "admin_fullscreen" not in st.session_state:
+    st.session_state.admin_fullscreen = False
+
+st.html(
+    f"""
+<script>
+document.body.classList.toggle(
+    "wg-admin-fullscreen",
+    {str(st.session_state.admin_fullscreen).lower()}
+);
+</script>
+""",
+    unsafe_allow_javascript=True,
+)
+
+with st.sidebar:
+    st.markdown("### Panel Admin")
+
+    if "admin_authed" not in st.session_state:
+        st.session_state.admin_authed = False
+
+    admin_password_tersedia = "admin_password" in st.secrets
+
+    if not admin_password_tersedia:
+        st.warning(
+            "Panel admin belum aktif. Tambahkan `admin_password` "
+            "di secrets.toml untuk mengaktifkan fitur ini."
+        )
+
+    elif not st.session_state.admin_authed:
+        pw_input = st.text_input(
+            "Password Admin",
+            type="password",
+            key="admin_pw_input",
+        )
+
+        if st.button("Masuk", key="admin_login_btn"):
+            if pw_input == st.secrets["admin_password"]:
+                st.session_state.admin_authed = True
+                st.rerun()
+            else:
+                st.error("Password salah.")
+
+    else:
+        col_status, col_logout = st.columns([3, 1])
+
+        with col_status:
+            st.success("Masuk sebagai Admin.")
+
+        with col_logout:
+            if st.button(
+                "Keluar",
+                key="admin_logout_btn",
+            ):
+                st.session_state.admin_authed = False
+                st.rerun()
+
+        st.caption(
+            "Kirim nota dari HP/laptop yang nomor WhatsApp-nya "
+            "adalah nomor admin, agar nota terkirim dari nomor "
+            "admin — bukan dari HP outlet."
+        )
+
+        st.toggle(
+            "Mode layar penuh",
+            key="admin_fullscreen",
+            help="Perluas panel admin menjadi tampilan penuh.",
+        )
+
+        if st.session_state.admin_fullscreen:
+            st.caption("Panel admin sedang ditampilkan penuh.")
+
+        search_kw = st.text_input(
+            "Cari order ID / nama outlet",
+            key="admin_search",
+            placeholder="Contoh: ORD-260819 atau ABC Cell",
+        )
+
+        try:
+            semua_data = worksheet.get_all_records()
+        except Exception as e:
+            semua_data = []
+            st.error(
+                "Gagal mengambil data pesanan dari Google Sheets."
+            )
+            st.exception(e)
+
+        if not semua_data:
+            st.markdown(
+                '<div class="wg-admin-empty">'
+                "Belum ada pesanan masuk."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        else:
+            df_semua = pd.DataFrame(semua_data)
+
+            if "order_id" not in df_semua.columns:
+                st.warning(
+                    "Kolom `order_id` tidak ditemukan di sheet. "
+                    "Pastikan header sheet sudah sesuai."
+                )
+
+            else:
+                status_map = get_status_map(worksheet_status)
+
+                order_ids_unik = (
+                    df_semua[["order_id", "timestamp"]]
+                    .drop_duplicates(subset="order_id")
+                    .sort_values(
+                        "timestamp",
+                        ascending=False,
+                    )["order_id"]
+                    .tolist()
+                )
+
+                daftar_order = []
+
+                for oid in order_ids_unik:
+                    baris_order = df_semua[
+                        df_semua["order_id"] == oid
+                    ]
+
+                    first_row = baris_order.iloc[0]
+
+                    total_order = pd.to_numeric(
+                        baris_order["subtotal"],
+                        errors="coerce",
+                    ).sum()
+
+                    daftar_order.append(
+                        {
+                            "order_id": oid,
+                            "nama_outlet": first_row.get(
+                                "nama_outlet",
+                                "",
+                            ),
+                            "no_wa": first_row.get(
+                                "no_wa",
+                                "",
+                            ),
+                            "alamat_pengiriman": first_row.get(
+                                "alamat_pengiriman",
+                                "",
+                            ),
+                            "timestamp": first_row.get(
+                                "timestamp",
+                                "",
+                            ),
+                            "baris_order": baris_order,
+                            "total": total_order,
+                            "terkirim": status_map.get(
+                                str(oid),
+                                False,
+                            ),
+                        }
+                    )
+
+                if search_kw:
+                    kw = search_kw.strip().lower()
+
+                    daftar_order = [
+                        d
+                        for d in daftar_order
+                        if (
+                            kw in str(
+                                d["order_id"]
+                            ).lower()
+                            or
+                            kw in str(
+                                d["nama_outlet"]
+                            ).lower()
+                        )
+                    ]
+
+                belum_dikirim = [
+                    d
+                    for d in daftar_order
+                    if not d["terkirim"]
+                ]
+
+                sudah_dikirim = [
+                    d
+                    for d in daftar_order
+                    if d["terkirim"]
+                ]
+
+                JUMLAH_TAMPIL = 20
+
+                def render_kartu_order(d, sudah):
+                    items_order = [
+                        {
+                            "produk": r["produk"],
+                            "kode_voucher": r["kode_voucher"],
+                            "qty": r["qty"],
+                            "harga_satuan": r["harga_satuan"],
+                            "subtotal": r["subtotal"],
+                        }
+                        for _, r in d["baris_order"].iterrows()
+                    ]
+
+                    teks_nota_admin = build_nota_wa_text(
+                        d["order_id"],
+                        d["nama_outlet"],
+                        d["no_wa"],
+                        d["alamat_pengiriman"],
+                        d["timestamp"],
+                        items_order,
+                        d["total"],
+                    )
+
+                    nomor_tujuan = format_no_wa(
+                        str(d["no_wa"])
+                    )
+
+                    link_wa_admin = (
+                        "https://api.whatsapp.com/send"
+                        f"?phone={nomor_tujuan}"
+                        f"&text={quote(teks_nota_admin)}"
+                    )
+
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**{d['order_id']}** — "
+                            f"{d['nama_outlet']}"
+                        )
+
+                        st.markdown(
+                            '<div class="wg-admin-card-total">'
+                            f"{d['timestamp']} · "
+                            f"{format_rupiah(d['total'])} · "
+                            f"{len(d['baris_order'])} item"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                        # ====================================================
+                        # ACTION BUTTONS
+                        # Kedua tombol dibungkus bersama agar tinggi sama.
+                        # ====================================================
+                        st.markdown(
+                            '<div class="wg-admin-actions">',
+                            unsafe_allow_html=True,
+                        )
+
+                        c1, c2 = st.columns(
+                            2,
+                            gap="small",
+                        )
+
+                        with c1:
+                            st.link_button(
+                                "Kirim WhatsApp",
+                                link_wa_admin,
+                                use_container_width=True,
+                            )
+
+                        with c2:
+                            if not sudah:
+                                if st.button(
+                                    "Tandai terkirim",
+                                    key=(
+                                        f"tandai_"
+                                        f"{d['order_id']}"
+                                    ),
+                                    use_container_width=True,
+                                ):
+                                    tandai_terkirim(
+                                        worksheet_status,
+                                        d["order_id"],
+                                    )
+                                    st.rerun()
+
+                            else:
+                                if st.button(
+                                    "Batalkan tandai",
+                                    key=(
+                                        f"batal_"
+                                        f"{d['order_id']}"
+                                    ),
+                                    use_container_width=True,
+                                ):
+                                    batalkan_tandai(
+                                        worksheet_status,
+                                        d["order_id"],
+                                    )
+                                    st.rerun()
+
+                        st.markdown(
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                with st.expander(
+                    f"Belum dikirim ({len(belum_dikirim)})",
+                    expanded=True,
+                ):
+                    if not belum_dikirim:
+                        st.markdown(
+                            '<div class="wg-admin-empty">'
+                            "Tidak ada pesanan yang belum dikirim."
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        for d in belum_dikirim[:JUMLAH_TAMPIL]:
+                            render_kartu_order(
+                                d,
+                                sudah=False,
+                            )
+
+                st.divider()
+
+                with st.expander(
+                    f"Sudah dikirim ({len(sudah_dikirim)})",
+                    expanded=False,
+                ):
+                    if not sudah_dikirim:
+                        st.markdown(
+                            '<div class="wg-admin-empty">'
+                            "Belum ada yang ditandai terkirim."
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        for d in sudah_dikirim[:JUMLAH_TAMPIL]:
+                            render_kartu_order(
+                                d,
+                                sudah=True,
+                            )
