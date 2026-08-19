@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -22,16 +21,8 @@ st.set_page_config(
 )
 
 # ============================================================
-# CSS + FLOATING SCROLL CONTROLLER
+# CSS + FLOATING SCROLL CONTROLLER + QTY BOX GABUNGAN
 # ============================================================
-# Perubahan utama:
-# 1. Quantity tidak lagi memakai st.number_input di kartu produk.
-#    Di HP, number_input + 3 kolom mudah "stack" menjadi vertikal.
-# 2. Quantity dibuat sebagai tombol - / angka / + yang lebih nyaman
-#    untuk touch screen.
-# 3. Scroll controller memakai target scroll Streamlit + fallback
-#    ke window/document, dengan ukuran responsif dan drag touch.
-
 st.html(
     """
     <style>
@@ -51,8 +42,6 @@ st.html(
         padding: 0.75rem !important;
     }
 
-    /* Paksa baris +/-/qty tetap horizontal di dalam kartu,
-       termasuk ketika layar HP sangat sempit. */
     div[data-testid="stVerticalBlockBorderWrapper"]
     div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
@@ -65,7 +54,6 @@ st.html(
         min-width: 0 !important;
     }
 
-    /* Tombol quantity */
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
         width: 100% !important;
         min-width: 0 !important;
@@ -86,27 +74,70 @@ st.html(
         margin: 0 !important;
     }
 
-    .wg-qty-value {
-        height: 40px;
-        min-height: 40px;
-        width: 100%;
-        border: 1px solid rgba(49, 51, 63, 0.20);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        font-weight: 700;
-        box-sizing: border-box;
-        background: rgba(250, 250, 250, 0.8);
-    }
-
     .wg-qty-label {
         font-size: 0.72rem;
         color: rgba(49, 51, 63, 0.62);
         text-align: center;
         margin-top: 0.35rem;
         margin-bottom: 0.1rem;
+    }
+
+    /* ========================================================
+       QTY BOX GABUNGAN ( - | angka | + ) JADI SATU PIL
+       ======================================================== */
+    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        align-items: stretch !important;
+        gap: 0 !important;
+        border: 1px solid rgba(49, 51, 63, 0.20);
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(250, 250, 250, 0.8);
+    }
+
+    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
+        min-width: 0 !important;
+    }
+
+    /* tombol - dan + custom: hilangkan border/radius individual */
+    div[class*="st-key-qtybox-"] .stButton > button {
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        height: 40px !important;
+    }
+
+    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:first-child .stButton > button {
+        border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
+    }
+
+    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:last-child .stButton > button {
+        border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
+    }
+
+    /* input angka di tengah: transparan, nyatu, center text */
+    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] {
+        background: transparent !important;
+    }
+
+    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        text-align: center !important;
+        height: 40px !important;
+        font-weight: 700 !important;
+    }
+
+    /* sembunyikan tombol +/- bawaan number_input (pakai tombol custom sendiri) */
+    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepUp"],
+    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepDown"] {
+        display: none !important;
+    }
+
+    /* sembunyikan teks "Press Enter to apply" */
+    div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
+        display: none !important;
     }
 
     /* ========================================================
@@ -192,7 +223,6 @@ st.html(
         will-change: transform, height;
     }
 
-    /* Jangan menutup tombol penting di HP kecil. */
     @media (max-width: 600px) {
         .wg-scroll-rail {
             right: max(4px, env(safe-area-inset-right));
@@ -200,7 +230,7 @@ st.html(
             min-height: 170px;
         }
 
-        .wg-qty-value,
+        div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input,
         div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
             height: 42px !important;
             min-height: 42px !important;
@@ -226,7 +256,6 @@ st.html(
         }
     }
 
-    /* Beri ruang kecil di sisi kanan agar rail tidak terasa menutupi konten. */
     @media (max-width: 600px) {
         .block-container {
             padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
@@ -335,8 +364,6 @@ st.html(
 
         function scrollByAmount(direction) {
             const state = getState();
-            // Besaran mengikuti tinggi layar, jadi tidak terasa terlalu kecil
-            // di desktop dan tidak terlalu jauh di HP.
             const amount = Math.max(
                 180,
                 Math.min(520, Math.round(state.viewport * 0.72))
@@ -404,7 +431,6 @@ st.html(
             scrollToPosition(ratio * state.max, true);
         }, { passive: false });
 
-        /* Drag thumb di desktop + touch screen. */
         let dragging = false;
 
         function dragTo(clientY) {
@@ -483,7 +509,6 @@ st.html(
 
         bindScrollListener();
 
-        /* Streamlit dapat mengganti DOM setelah rerun. */
         const observer = new MutationObserver(() => {
             bindScrollListener();
         });
@@ -593,18 +618,25 @@ if "last_order_id" not in st.session_state:
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
+        st.session_state[f"qtyinput_{kode}"] = 0
     st.session_state["_do_reset_qty"] = False
 
 
 def tambah(kode):
-    st.session_state.qty[kode] = (
-        st.session_state.qty.get(kode, 0) + 1
-    )
+    baru = st.session_state.qty.get(kode, 0) + 1
+    st.session_state.qty[kode] = baru
+    st.session_state[f"qtyinput_{kode}"] = baru
 
 
 def kurang(kode):
-    current = st.session_state.qty.get(kode, 0)
-    st.session_state.qty[kode] = max(0, current - 1)
+    baru = max(0, st.session_state.qty.get(kode, 0) - 1)
+    st.session_state.qty[kode] = baru
+    st.session_state[f"qtyinput_{kode}"] = baru
+
+
+def set_qty_dari_input(kode):
+    nilai = st.session_state.get(f"qtyinput_{kode}", 0)
+    st.session_state.qty[kode] = max(0, int(nilai or 0))
 
 
 def format_rupiah(n):
@@ -1003,43 +1035,53 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     st.caption("⚠️ Harga belum tersedia")
 
                 # ====================================================
-                # QUANTITY CONTROL BARU
-                # Tidak memakai number_input agar tidak muncul keyboard
-                # dan tidak stack aneh di layar HP.
+                # QUANTITY CONTROL: satu kotak pil [-][angka][+]
+                # Angka pakai number_input (tetap bisa diketik manual),
+                # tombol +/- bawaan number_input disembunyikan via CSS,
+                # digantikan tombol custom di kiri-kanan.
                 # ====================================================
-                c_minus, c_qty, c_plus = st.columns(
-                    [1, 1.35, 1],
-                    gap="small",
-                    vertical_alignment="center",
-                )
-
-                with c_minus:
-                    st.button(
-                        "−",
-                        key=f"minus_{kode}",
-                        on_click=kurang,
-                        args=(kode,),
-                        disabled=(harga == 0),
-                        use_container_width=True,
-                        help="Kurangi jumlah",
+                qty_box = st.container(key=f"qtybox-{kode}")
+                with qty_box:
+                    c_minus, c_qty, c_plus = st.columns(
+                        [1, 1.6, 1],
+                        gap="small",
+                        vertical_alignment="center",
                     )
 
-                with c_qty:
-                    st.markdown(
-                        f'<div class="wg-qty-value">{qty_sekarang}</div>',
-                        unsafe_allow_html=True,
-                    )
+                    with c_minus:
+                        st.button(
+                            "−",
+                            key=f"minus_{kode}",
+                            on_click=kurang,
+                            args=(kode,),
+                            disabled=(harga == 0),
+                            use_container_width=True,
+                            help="Kurangi jumlah",
+                        )
 
-                with c_plus:
-                    st.button(
-                        "+",
-                        key=f"plus_{kode}",
-                        on_click=tambah,
-                        args=(kode,),
-                        disabled=(harga == 0),
-                        use_container_width=True,
-                        help="Tambah jumlah",
-                    )
+                    with c_qty:
+                        st.number_input(
+                            "Jumlah",
+                            min_value=0,
+                            step=1,
+                            value=qty_sekarang,
+                            key=f"qtyinput_{kode}",
+                            on_change=set_qty_dari_input,
+                            args=(kode,),
+                            disabled=(harga == 0),
+                            label_visibility="collapsed",
+                        )
+
+                    with c_plus:
+                        st.button(
+                            "+",
+                            key=f"plus_{kode}",
+                            on_click=tambah,
+                            args=(kode,),
+                            disabled=(harga == 0),
+                            use_container_width=True,
+                            help="Tambah jumlah",
+                        )
 
                 st.markdown(
                     '<div class="wg-qty-label">Jumlah</div>',
