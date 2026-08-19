@@ -1,5 +1,5 @@
+
 import streamlit as st
-from streamlit import html as st_html
 import pandas as pd
 from datetime import datetime
 from urllib.parse import quote
@@ -9,192 +9,242 @@ import gspread
 from google.oauth2.service_account import Credentials
 from PIL import Image, ImageDraw, ImageFont
 
-# ============ KONFIGURASI ============
-NAMA_WORKSHEET_PESANAN = "Pesanan"  # nama tab di Google Sheet untuk simpan pesanan
-NAMA_WORKSHEET_PRODUK = "Produk"    # nama tab di Google Sheet untuk data produk
+# ============================================================
+# KONFIGURASI
+# ============================================================
+NAMA_WORKSHEET_PESANAN = "Pesanan"
+NAMA_WORKSHEET_PRODUK = "Produk"
 
-st.set_page_config(page_title="Form Pesanan Outlet", page_icon="🛒", layout="centered")
+st.set_page_config(
+    page_title="Form Pesanan Outlet",
+    page_icon="🛒",
+    layout="centered",
+)
 
-# ============ CSS KUSTOM + SCROLL CONTROLLER ============
-# Scroll controller dibuat satu kali saja.
-# st.html(..., unsafe_allow_javascript=True) dipakai agar JavaScript benar-benar
-# dieksekusi oleh browser, bukan sekadar dirender sebagai HTML.
+# ============================================================
+# CSS + FLOATING SCROLL CONTROLLER
+# ============================================================
+# Perubahan utama:
+# 1. Quantity tidak lagi memakai st.number_input di kartu produk.
+#    Di HP, number_input + 3 kolom mudah "stack" menjadi vertikal.
+# 2. Quantity dibuat sebagai tombol - / angka / + yang lebih nyaman
+#    untuk touch screen.
+# 3. Scroll controller memakai target scroll Streamlit + fallback
+#    ke window/document, dengan ukuran responsif dan drag touch.
 
-st_html(
+st.html(
     """
     <style>
-    /* 1. Center angka quantity */
-    div[data-testid="stNumberInput"] {
-        width: 100% !important;
-        display: flex !important;
-        justify-content: center !important;
+    /* ========================================================
+       GLOBAL MOBILE / DESKTOP
+       ======================================================== */
+    .block-container {
+        padding-top: clamp(1rem, 3vw, 2.5rem) !important;
+        padding-bottom: 5rem !important;
     }
 
-    div[data-testid="stNumberInput"] > div {
-        width: auto !important;
+    /* ========================================================
+       PRODUCT CARD
+       ======================================================== */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 14px !important;
+        padding: 0.75rem !important;
     }
 
-    div[data-testid="stNumberInput"] div[data-baseweb="input"] {
-        width: 64px !important;
-        max-width: 64px !important;
-        min-width: 64px !important;
-        margin: 0 auto !important;
-        display: flex !important;
+    /* Paksa baris +/-/qty tetap horizontal di dalam kartu,
+       termasuk ketika layar HP sangat sempit. */
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
         align-items: center !important;
-        justify-content: center !important;
-        overflow: hidden !important;
+        gap: 0.35rem !important;
     }
 
-    div[data-testid="stNumberInput"] input {
-        text-align: center !important;
-        width: 100% !important;
-        flex: 1 1 auto !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-
-    div[data-testid="stNumberInputStepDown"],
-    div[data-testid="stNumberInputStepUp"] {
-        display: none !important;
-        width: 0 !important;
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    div[data-testid="stHorizontalBlock"] > div {
         min-width: 0 !important;
-        flex: 0 0 0px !important;
-        padding: 0 !important;
-        margin: 0 !important;
     }
 
-    /* 2. Tombol +/- pada kartu produk */
+    /* Tombol quantity */
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
-        height: 18px !important;
-        min-height: 18px !important;
-        width: 26px !important;
-        min-width: 26px !important;
-        max-width: 26px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 40px !important;
+        min-height: 40px !important;
         padding: 0 !important;
-        border-radius: 5px !important;
+        border-radius: 10px !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
         line-height: 1 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button p,
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button div {
-        font-size: 11px !important;
+        font-size: 18px !important;
         font-weight: 700 !important;
         line-height: 1 !important;
         margin: 0 !important;
     }
 
-    /* 3. Floating scroll controller */
-    .scroll-rail-container {
-        position: fixed;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        height: 58vh;
-        max-height: 460px;
-        min-height: 220px;
-        z-index: 2147483647;
-        pointer-events: auto;
-    }
-
-    .scroll-rail-arrow {
-        background: rgba(255,255,255,0.94);
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        padding: 0;
-        margin: 0;
-        cursor: pointer;
+    .wg-qty-value {
+        height: 40px;
+        min-height: 40px;
+        width: 100%;
+        border: 1px solid rgba(49, 51, 63, 0.20);
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        -webkit-user-select: none;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.12);
-    }
-
-    .scroll-rail-arrow:hover {
-        background: #f5f5f5;
-    }
-
-    .scroll-rail-arrow:active {
-        transform: scale(0.92);
-    }
-
-    .scroll-rail-arrow {
-        color: #666;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 700;
-        line-height: 1;
+        box-sizing: border-box;
+        background: rgba(250, 250, 250, 0.8);
     }
 
-    .scroll-rail-track {
-        position: relative;
-        flex: 1;
-        width: 6px;
-        background: rgba(0,0,0,0.08);
-        border-radius: 4px;
-        cursor: pointer;
+    .wg-qty-label {
+        font-size: 0.72rem;
+        color: rgba(49, 51, 63, 0.62);
+        text-align: center;
+        margin-top: 0.35rem;
+        margin-bottom: 0.1rem;
+    }
+
+    /* ========================================================
+       FLOATING SCROLL CONTROLLER
+       ======================================================== */
+    .wg-scroll-rail {
+        position: fixed;
+        right: max(6px, env(safe-area-inset-right));
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 999999;
+        width: clamp(34px, 8vw, 42px);
+        height: min(58vh, 430px);
+        max-height: calc(100dvh - 120px);
+        min-height: 190px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        pointer-events: auto;
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
     }
 
-    .scroll-rail-track::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: -12px;
-        right: -12px;
+    .wg-scroll-btn {
+        width: clamp(32px, 8vw, 38px);
+        height: clamp(32px, 8vw, 38px);
+        flex: 0 0 auto;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 50%;
+        background: rgba(255,255,255,0.96);
+        color: #555;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
     }
 
-    .scroll-rail-thumb {
+    .wg-scroll-btn:active {
+        transform: scale(0.92);
+        background: #f2f2f2;
+    }
+
+    .wg-scroll-track {
+        position: relative;
+        flex: 1 1 auto;
+        width: 7px;
+        min-height: 110px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.09);
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+        cursor: pointer;
+        touch-action: none;
+    }
+
+    .wg-scroll-track::before {
+        content: "";
+        position: absolute;
+        left: -13px;
+        right: -13px;
+        top: 0;
+        bottom: 0;
+    }
+
+    .wg-scroll-thumb {
         position: absolute;
         left: 0;
         top: 0;
-        width: 6px;
-        min-height: 28px;
-        border-radius: 4px;
-        background: #999;
+        width: 7px;
+        min-height: 30px;
+        border-radius: 999px;
+        background: rgba(80,80,80,0.55);
         pointer-events: none;
+        will-change: transform, height;
     }
 
+    /* Jangan menutup tombol penting di HP kecil. */
     @media (max-width: 600px) {
-        .scroll-rail-container {
-            right: 5px;
-            height: 52vh;
-            min-height: 190px;
-            max-height: 380px;
+        .wg-scroll-rail {
+            right: max(4px, env(safe-area-inset-right));
+            height: min(48vh, 340px);
+            min-height: 170px;
         }
 
-        .scroll-rail-arrow {
+        .wg-qty-value,
+        div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
+            height: 42px !important;
+            min-height: 42px !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 0.65rem !important;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .wg-scroll-rail {
             width: 32px;
-            height: 32px;
+            height: min(44vh, 300px);
+        }
+
+        .wg-scroll-track {
+            width: 6px;
+        }
+
+        .wg-scroll-thumb {
+            width: 6px;
+        }
+    }
+
+    /* Beri ruang kecil di sisi kanan agar rail tidak terasa menutupi konten. */
+    @media (max-width: 600px) {
+        .block-container {
+            padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
         }
     }
     </style>
 
-    <div class="scroll-rail-container" id="wgScrollRail">
-        <button class="scroll-rail-arrow" id="wgScrollUp"
-                type="button" title="Scroll ke atas" aria-label="Scroll ke atas">↑</button>
+    <div class="wg-scroll-rail" id="wgScrollRail" aria-label="Kontrol scroll">
+        <button class="wg-scroll-btn" id="wgScrollUp"
+                type="button" aria-label="Scroll ke atas" title="Scroll ke atas">↑</button>
 
-        <div class="scroll-rail-track" id="wgScrollTrack"
-             title="Klik untuk berpindah posisi">
-            <div class="scroll-rail-thumb" id="wgScrollThumb"></div>
+        <div class="wg-scroll-track" id="wgScrollTrack"
+             aria-label="Posisi halaman" title="Klik atau geser posisi scroll">
+            <div class="wg-scroll-thumb" id="wgScrollThumb"></div>
         </div>
 
-        <button class="scroll-rail-arrow" id="wgScrollDown"
-                type="button" title="Scroll ke bawah" aria-label="Scroll ke bawah">↓</button>
+        <button class="wg-scroll-btn" id="wgScrollDown"
+                type="button" aria-label="Scroll ke bawah" title="Scroll ke bawah">↓</button>
     </div>
 
     <script>
@@ -207,164 +257,257 @@ st_html(
 
         if (!root || !up || !down || !track || !thumb) return;
 
-        // Ambil document utama Streamlit.
-        const doc = window.parent?.document || document;
+        const doc = document;
+
+        function isScrollable(el) {
+            if (!el) return false;
+            return el.scrollHeight > el.clientHeight + 8;
+        }
 
         function getScrollTarget() {
             const candidates = [
                 doc.querySelector('[data-testid="stAppViewContainer"]'),
                 doc.querySelector('[data-testid="stMain"]'),
                 doc.querySelector('section.main'),
-                doc.querySelector('.main'),
                 doc.scrollingElement,
                 doc.documentElement,
                 doc.body
             ];
 
-            // Pilih elemen yang benar-benar memiliki area scroll.
             for (const el of candidates) {
-                if (el && el.scrollHeight > el.clientHeight + 5) {
-                    return el;
+                if (isScrollable(el)) return el;
+            }
+
+            return null;
+        }
+
+        function getState() {
+            const target = getScrollTarget();
+
+            if (!target) {
+                return {
+                    target: null,
+                    top: window.scrollY || 0,
+                    max: Math.max(
+                        0,
+                        doc.documentElement.scrollHeight - window.innerHeight
+                    ),
+                    viewport: window.innerHeight,
+                    total: doc.documentElement.scrollHeight
+                };
+            }
+
+            const max = Math.max(0, target.scrollHeight - target.clientHeight);
+
+            return {
+                target,
+                top: target.scrollTop || 0,
+                max,
+                viewport: target.clientHeight,
+                total: target.scrollHeight
+            };
+        }
+
+        function scrollToPosition(top, smooth = true) {
+            const state = getState();
+            const safeTop = Math.max(0, Math.min(top, state.max));
+
+            if (state.target) {
+                try {
+                    state.target.scrollTo({
+                        top: safeTop,
+                        left: 0,
+                        behavior: smooth ? "smooth" : "auto"
+                    });
+                    return;
+                } catch (e) {
+                    state.target.scrollTop = safeTop;
+                    return;
                 }
             }
 
-            return doc.scrollingElement || doc.documentElement || doc.body;
+            window.scrollTo({
+                top: safeTop,
+                left: 0,
+                behavior: smooth ? "smooth" : "auto"
+            });
+        }
+
+        function scrollByAmount(direction) {
+            const state = getState();
+            // Besaran mengikuti tinggi layar, jadi tidak terasa terlalu kecil
+            // di desktop dan tidak terlalu jauh di HP.
+            const amount = Math.max(
+                180,
+                Math.min(520, Math.round(state.viewport * 0.72))
+            );
+            scrollToPosition(state.top + direction * amount, true);
         }
 
         function updateThumb() {
-            const target = getScrollTarget();
+            const state = getState();
             const trackHeight = track.clientHeight;
 
-            if (!target || trackHeight <= 0) return;
+            if (!trackHeight) return;
 
-            const maxScroll = Math.max(
-                0,
-                target.scrollHeight - target.clientHeight
-            );
+            if (state.max <= 0) {
+                root.style.display = "none";
+                return;
+            }
 
-            const visibleRatio = target.scrollHeight > 0
-                ? target.clientHeight / target.scrollHeight
+            root.style.display = "flex";
+
+            const visibleRatio = state.total > 0
+                ? Math.min(1, state.viewport / state.total)
                 : 1;
 
             const thumbHeight = Math.max(
-                28,
+                30,
                 Math.min(trackHeight, trackHeight * visibleRatio)
             );
 
-            const maxThumbTop = Math.max(
-                0,
-                trackHeight - thumbHeight
-            );
-
-            const ratio = maxScroll > 0
-                ? target.scrollTop / maxScroll
-                : 0;
+            const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
+            const ratio = state.max > 0 ? state.top / state.max : 0;
 
             thumb.style.height = thumbHeight + "px";
             thumb.style.transform =
                 "translateY(" + (ratio * maxThumbTop) + "px)";
         }
 
-        function scrollByAmount(amount) {
-            const target = getScrollTarget();
-            if (!target) return;
+        up.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            scrollByAmount(-1);
+        }, { passive: false });
 
-            target.scrollBy({
-                top: amount,
-                left: 0,
-                behavior: "smooth"
-            });
-        }
+        down.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            scrollByAmount(1);
+        }, { passive: false });
 
-        up.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            scrollByAmount(-300);
-        });
+        track.addEventListener("click", (event) => {
+            if (event.target === thumb) return;
 
-        down.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            scrollByAmount(300);
-        });
+            event.preventDefault();
+            event.stopPropagation();
 
-        track.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const target = getScrollTarget();
-            if (!target) return;
+            const state = getState();
+            if (state.max <= 0) return;
 
             const rect = track.getBoundingClientRect();
-            const y = e.clientY - rect.top;
             const ratio = Math.max(
                 0,
-                Math.min(1, y / rect.height)
+                Math.min(1, (event.clientY - rect.top) / rect.height)
             );
 
-            const maxScroll = Math.max(
+            scrollToPosition(ratio * state.max, true);
+        }, { passive: false });
+
+        /* Drag thumb di desktop + touch screen. */
+        let dragging = false;
+
+        function dragTo(clientY) {
+            const state = getState();
+            const rect = track.getBoundingClientRect();
+
+            const visibleRatio = state.total > 0
+                ? Math.min(1, state.viewport / state.total)
+                : 1;
+
+            const thumbHeight = Math.max(
+                30,
+                Math.min(track.clientHeight, track.clientHeight * visibleRatio)
+            );
+
+            const maxThumbTop = Math.max(
                 0,
-                target.scrollHeight - target.clientHeight
+                track.clientHeight - thumbHeight
             );
 
-            target.scrollTo({
-                top: ratio * maxScroll,
-                left: 0,
-                behavior: "smooth"
-            });
+            if (maxThumbTop <= 0 || state.max <= 0) return;
+
+            const y = Math.max(
+                0,
+                Math.min(maxThumbTop, clientY - rect.top - thumbHeight / 2)
+            );
+
+            scrollToPosition((y / maxThumbTop) * state.max, false);
+        }
+
+        thumb.addEventListener("pointerdown", (event) => {
+            dragging = true;
+            thumb.setPointerCapture?.(event.pointerId);
+            event.preventDefault();
+            event.stopPropagation();
+        }, { passive: false });
+
+        track.addEventListener("pointermove", (event) => {
+            if (!dragging) return;
+            dragTo(event.clientY);
+            event.preventDefault();
+        }, { passive: false });
+
+        track.addEventListener("pointerup", (event) => {
+            dragging = false;
+            event.preventDefault();
+        }, { passive: false });
+
+        track.addEventListener("pointercancel", () => {
+            dragging = false;
         });
 
-        // Update posisi thumb ketika halaman di-scroll.
         let currentTarget = null;
 
         function bindScrollListener() {
             const target = getScrollTarget();
 
-            if (!target || target === currentTarget) {
-                updateThumb();
-                return;
-            }
+            if (target !== currentTarget) {
+                if (currentTarget) {
+                    currentTarget.removeEventListener("scroll", updateThumb);
+                }
 
-            if (currentTarget) {
-                currentTarget.removeEventListener(
-                    "scroll",
-                    updateThumb
-                );
-            }
+                currentTarget = target;
 
-            currentTarget = target;
-            currentTarget.addEventListener(
-                "scroll",
-                updateThumb,
-                { passive: true }
-            );
+                if (currentTarget) {
+                    currentTarget.addEventListener(
+                        "scroll",
+                        updateThumb,
+                        { passive: true }
+                    );
+                }
+            }
 
             updateThumb();
         }
 
         bindScrollListener();
 
-        // Streamlit bisa mengganti DOM setelah rerun.
-        setInterval(() => {
+        /* Streamlit dapat mengganti DOM setelah rerun. */
+        const observer = new MutationObserver(() => {
             bindScrollListener();
-        }, 500);
+        });
 
+        observer.observe(doc.body, {
+            childList: true,
+            subtree: true
+        });
+
+        window.addEventListener("scroll", updateThumb, { passive: true });
         window.addEventListener("resize", updateThumb);
 
-        if (window.ResizeObserver) {
-            const observer = new ResizeObserver(() => {
-                bindScrollListener();
-            });
-
-            observer.observe(doc.documentElement);
-        }
+        setTimeout(bindScrollListener, 100);
+        setTimeout(bindScrollListener, 500);
+        setTimeout(bindScrollListener, 1200);
     })();
     </script>
     """,
     unsafe_allow_javascript=True,
 )
 
-# ============ KONEKSI GOOGLE SHEETS ============
+# ============================================================
+# KONEKSI GOOGLE SHEETS
+# ============================================================
 @st.cache_resource
 def connect_sheet():
     scopes = [
@@ -372,7 +515,8 @@ def connect_sheet():
         "https://www.googleapis.com/auth/drive",
     ]
     creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=scopes
+        st.secrets["gcp_service_account"],
+        scopes=scopes,
     )
     client = gspread.authorize(creds)
     spreadsheet = client.open_by_url(st.secrets["spreadsheet_url"])
@@ -387,79 +531,80 @@ try:
 except Exception as e:
     sheet_ok = False
     st.error(
-        "Gagal konek ke Google Sheets. Cek konfigurasi secrets (gcp_service_account, "
-        "spreadsheet_url) dan pastikan sheet sudah di-share ke email service account."
+        "Gagal konek ke Google Sheets. Cek konfigurasi secrets "
+        "(gcp_service_account, spreadsheet_url) dan pastikan sheet "
+        "sudah di-share ke email service account."
     )
     st.exception(e)
     st.stop()
 
-
-# ============ LOAD DATA PRODUK (dari Google Sheets, auto-refresh tiap 60 detik) ============
+# ============================================================
+# LOAD PRODUK
+# ============================================================
 @st.cache_data(ttl=60)
 def load_produk(_worksheet_produk):
     data = _worksheet_produk.get_all_records()
     df = pd.DataFrame(data)
-    df["harga"] = pd.to_numeric(df["harga"], errors="coerce").fillna(0).astype(int)
+
+    if df.empty:
+        return df
+
+    df["harga"] = (
+        pd.to_numeric(df["harga"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
     return df
 
 
 produk_df = load_produk(worksheet_produk)
 
-# ============ SESSION STATE ============
+if produk_df.empty:
+    st.warning("Belum ada data produk pada worksheet Produk.")
+    st.stop()
+
+# ============================================================
+# SESSION STATE
+# ============================================================
 if "qty" not in st.session_state:
-    st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
+    st.session_state.qty = {
+        kode: 0 for kode in produk_df["kode_voucher"]
+    }
 else:
-    # sinkronkan qty kalau ada kode voucher baru yang baru ditambahkan di sheet
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty.setdefault(kode, 0)
 
-# Kalau ada permintaan reset qty (misal setelah order berhasil dikirim),
-# lakukan di SINI, di awal script, SEBELUM widget qty dibuat di bawah.
-# Ini wajib: session_state milik sebuah widget tidak boleh diubah lagi
-# setelah widget itu sempat di-render di run yang sama (itu penyebab
-# StreamlitAPIException "cannot be modified after the widget is instantiated").
-if st.session_state.get("_do_reset_qty"):
-    for kode in produk_df["kode_voucher"]:
-        st.session_state.qty[kode] = 0
-        st.session_state[f"qtyinput_{kode}"] = 0
-    st.session_state["_do_reset_qty"] = False
-
-# Inisialisasi key widget qtyinput_{kode} SEBELUM widget number_input dibuat.
-# Ini FIX untuk warning "created with a default value but also had its value
-# set via the Session State API": widget qty TIDAK boleh dikasih value=...
-# sekaligus key-nya juga diisi manual lewat session_state. Jadi session_state
-# ini yang jadi satu-satunya sumber nilai, widget cukup pakai key= saja.
-for kode in produk_df["kode_voucher"]:
-    st.session_state.setdefault(f"qtyinput_{kode}", st.session_state.qty[kode])
-
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
+
 if "last_receipt_name" not in st.session_state:
     st.session_state.last_receipt_name = None
+
 if "show_success" not in st.session_state:
     st.session_state.show_success = False
+
 if "last_wa_link" not in st.session_state:
     st.session_state.last_wa_link = None
+
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
+# Reset qty dilakukan SEBELUM kartu produk dibuat.
+if st.session_state.get("_do_reset_qty"):
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty[kode] = 0
+    st.session_state["_do_reset_qty"] = False
+
 
 def tambah(kode):
-    st.session_state.qty[kode] += 1
-    st.session_state[f"qtyinput_{kode}"] = st.session_state.qty[kode]
+    st.session_state.qty[kode] = (
+        st.session_state.qty.get(kode, 0) + 1
+    )
 
 
 def kurang(kode):
-    if st.session_state.qty[kode] > 0:
-        st.session_state.qty[kode] -= 1
-    st.session_state[f"qtyinput_{kode}"] = st.session_state.qty[kode]
-
-
-def ubah_qty_manual(kode):
-    nilai = st.session_state.get(f"qtyinput_{kode}", 0)
-    if nilai is None or nilai < 0:
-        nilai = 0
-    st.session_state.qty[kode] = int(nilai)
+    current = st.session_state.qty.get(kode, 0)
+    st.session_state.qty[kode] = max(0, current - 1)
 
 
 def format_rupiah(n):
@@ -467,27 +612,35 @@ def format_rupiah(n):
 
 
 def buat_order_id():
-    """Buat Order ID unik: ORD-YYMMDD-HHMMSS-XXX (3 digit acak buat jaga-jaga kalau ada 2 transaksi di detik yang sama)"""
     now = datetime.now()
     acak = random.randint(100, 999)
     return f"ORD-{now.strftime('%y%m%d-%H%M%S')}-{acak}"
 
 
 def format_no_wa(no_wa):
-    """Ubah nomor WA ke format internasional (62xxxxxxxxxx) yang dibutuhkan wa.me"""
     digits = "".join(ch for ch in no_wa if ch.isdigit())
+
     if digits.startswith("0"):
         digits = "62" + digits[1:]
     elif digits.startswith("620"):
         digits = "62" + digits[3:]
     elif not digits.startswith("62"):
         digits = "62" + digits
+
     return digits
 
 
-def build_nota_wa_text(order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga):
-    """Susun teks nota untuk dikirim lewat WhatsApp."""
+def build_nota_wa_text(
+    order_id,
+    nama_outlet,
+    no_wa,
+    alamat_pengiriman,
+    timestamp,
+    detail_pesanan,
+    total_harga,
+):
     garis = "━" * 20
+
     baris = [
         "Halo,",
         "Terima kasih telah melakukan pemesanan di Toko WG.",
@@ -499,25 +652,44 @@ def build_nota_wa_text(order_id, nama_outlet, no_wa, alamat_pengiriman, timestam
         f"Outlet   : {nama_outlet}",
         f"No. WA   : {no_wa}",
     ]
+
     if alamat_pengiriman:
         baris.append(f"Alamat   : {alamat_pengiriman}")
+
     baris.append(garis)
     baris.append("*Detail Pesanan*")
+
     for idx, item in enumerate(detail_pesanan, start=1):
         baris.append(f"{idx}. {item['produk']}")
         baris.append(f"   Kode     : {item['kode_voucher']}")
         baris.append(f"   Qty      : {item['qty']}")
-        baris.append(f"   Harga    : {format_rupiah(item['harga_satuan'])}")
-        baris.append(f"   Subtotal : {format_rupiah(item['subtotal'])}")
+        baris.append(
+            f"   Harga    : {format_rupiah(item['harga_satuan'])}"
+        )
+        baris.append(
+            f"   Subtotal : {format_rupiah(item['subtotal'])}"
+        )
+
     baris.append(garis)
     baris.append("*TOTAL PESANAN*")
     baris.append(format_rupiah(total_harga))
     baris.append("Mohon diperiksa kembali detail pesanan tersebut.")
-    baris.append("Terima kasih atas kepercayaan Anda kepada Toko WG.")
+    baris.append(
+        "Terima kasih atas kepercayaan Anda kepada Toko WG."
+    )
+
     return "\n".join(baris)
 
 
-def build_receipt_lines(order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga):
+def build_receipt_lines(
+    order_id,
+    nama_outlet,
+    no_wa,
+    alamat_pengiriman,
+    timestamp,
+    detail_pesanan,
+    total_harga,
+):
     lines = [
         ("title", "STRUK PEMESANAN OUTLET TOKO WG"),
         ("sep", ""),
@@ -526,46 +698,92 @@ def build_receipt_lines(order_id, nama_outlet, no_wa, alamat_pengiriman, timesta
         ("normal", f"Outlet  : {nama_outlet}"),
         ("normal", f"No. WA  : {no_wa}"),
     ]
+
     if alamat_pengiriman:
         lines.append(("normal", f"Alamat  : {alamat_pengiriman}"))
+
     lines.append(("sep", ""))
+
     for item in detail_pesanan:
-        lines.append(("item", f"[{item['provider']}] {item['produk']} ({item['kode_voucher']})"))
+        lines.append(
+            (
+                "item",
+                f"[{item['provider']}] "
+                f"{item['produk']} ({item['kode_voucher']})",
+            )
+        )
         lines.append(
             (
                 "sub",
-                f"{item['qty']} x {format_rupiah(item['harga_satuan'])} = {format_rupiah(item['subtotal'])}",
+                f"{item['qty']} x "
+                f"{format_rupiah(item['harga_satuan'])} = "
+                f"{format_rupiah(item['subtotal'])}",
             )
         )
+
     lines.append(("sep", ""))
-    lines.append(("total", f"TOTAL: {format_rupiah(total_harga)}"))
+    lines.append(
+        ("total", f"TOTAL: {format_rupiah(total_harga)}")
+    )
     lines.append(("sep", ""))
     lines.append(("footer", "Terima kasih atas pesanan Anda!"))
+
     return lines
 
 
 def _load_font(size, bold=False):
-    kandidat = ["consolab.ttf", "courbd.ttf"] if bold else ["consola.ttf", "cour.ttf", "DejaVuSansMono.ttf"]
+    kandidat = (
+        ["consolab.ttf", "courbd.ttf"]
+        if bold
+        else ["consola.ttf", "cour.ttf", "DejaVuSansMono.ttf"]
+    )
+
     for nama in kandidat:
         try:
             return ImageFont.truetype(nama, size)
         except Exception:
             continue
+
     return ImageFont.load_default()
 
 
-def build_receipt_image(order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga):
-    lines = build_receipt_lines(order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga)
+def build_receipt_image(
+    order_id,
+    nama_outlet,
+    no_wa,
+    alamat_pengiriman,
+    timestamp,
+    detail_pesanan,
+    total_harga,
+):
+    lines = build_receipt_lines(
+        order_id,
+        nama_outlet,
+        no_wa,
+        alamat_pengiriman,
+        timestamp,
+        detail_pesanan,
+        total_harga,
+    )
 
     width = 480
     padding = 24
     line_height = 26
+
     font_normal = _load_font(16)
     font_title = _load_font(20, bold=True)
     font_total = _load_font(18, bold=True)
 
     height = padding * 2 + sum(
-        (34 if tipe == "title" else 14 if tipe == "sep" else 24 if tipe == "total" else line_height)
+        (
+            34
+            if tipe == "title"
+            else 14
+            if tipe == "sep"
+            else 24
+            if tipe == "total"
+            else line_height
+        )
         for tipe, _ in lines
     )
 
@@ -575,28 +793,77 @@ def build_receipt_image(order_id, nama_outlet, no_wa, alamat_pengiriman, timesta
 
     for tipe, teks in lines:
         if tipe == "sep":
-            draw.line([(padding, y + 6), (width - padding, y + 6)], fill=(180, 180, 180), width=1)
+            draw.line(
+                [
+                    (padding, y + 6),
+                    (width - padding, y + 6),
+                ],
+                fill=(180, 180, 180),
+                width=1,
+            )
             y += 14
+
         elif tipe == "title":
-            bbox = draw.textbbox((0, 0), teks, font=font_title)
+            bbox = draw.textbbox(
+                (0, 0),
+                teks,
+                font=font_title,
+            )
             tw = bbox[2] - bbox[0]
-            draw.text(((width - tw) / 2, y), teks, fill="black", font=font_title)
+            draw.text(
+                ((width - tw) / 2, y),
+                teks,
+                fill="black",
+                font=font_title,
+            )
             y += 34
+
         elif tipe == "total":
-            bbox = draw.textbbox((0, 0), teks, font=font_total)
+            bbox = draw.textbbox(
+                (0, 0),
+                teks,
+                font=font_total,
+            )
             tw = bbox[2] - bbox[0]
-            draw.text((width - padding - tw, y), teks, fill="black", font=font_total)
+            draw.text(
+                (width - padding - tw, y),
+                teks,
+                fill="black",
+                font=font_total,
+            )
             y += 24
+
         elif tipe == "footer":
-            bbox = draw.textbbox((0, 0), teks, font=font_normal)
+            bbox = draw.textbbox(
+                (0, 0),
+                teks,
+                font=font_normal,
+            )
             tw = bbox[2] - bbox[0]
-            draw.text(((width - tw) / 2, y), teks, fill=(90, 90, 90), font=font_normal)
+            draw.text(
+                ((width - tw) / 2, y),
+                teks,
+                fill=(90, 90, 90),
+                font=font_normal,
+            )
             y += line_height
+
         elif tipe == "sub":
-            draw.text((padding + 12, y), teks, fill=(90, 90, 90), font=font_normal)
+            draw.text(
+                (padding + 12, y),
+                teks,
+                fill=(90, 90, 90),
+                font=font_normal,
+            )
             y += line_height
+
         else:
-            draw.text((padding, y), teks, fill="black", font=font_normal)
+            draw.text(
+                (padding, y),
+                teks,
+                fill="black",
+                font=font_normal,
+            )
             y += line_height
 
     buf = io.BytesIO()
@@ -604,57 +871,103 @@ def build_receipt_image(order_id, nama_outlet, no_wa, alamat_pengiriman, timesta
     return buf.getvalue()
 
 
-# ============ HEADER ============
-st.title("🛒 Form Pemesanan Outlet Toko\u00A0WG")
+# ============================================================
+# HEADER
+# ============================================================
+st.title("🛒 Form Pemesanan Outlet Toko WG")
 st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
-# ============ INPUT DATA OUTLET ============
+# ============================================================
+# DATA OUTLET
+# ============================================================
 st.subheader("Data Outlet")
+
 col1, col2 = st.columns(2)
+
 with col1:
-    nama_outlet = st.text_input("Nama Outlet", placeholder="Konter ABC Cell")
+    nama_outlet = st.text_input(
+        "Nama Outlet",
+        placeholder="Konter ABC Cell",
+    )
+
 with col2:
-    no_wa = st.text_input("No. WhatsApp", placeholder="08123456789")
+    no_wa = st.text_input(
+        "No. WhatsApp",
+        placeholder="08123456789",
+    )
 
-alamat_pengiriman = st.text_input("Alamat Pengiriman *", placeholder="Jl. Ahmad Yani No.2")
-st.caption("*Opsional, boleh dikosongkan")
+alamat_pengiriman = st.text_input(
+    "Alamat Pengiriman",
+    placeholder="Jl. Ahmad Yani No. 2",
+)
 
+st.caption("Alamat pengiriman bersifat opsional.")
 st.divider()
 
-# ============ FILTER PROVIDER ============
+# ============================================================
+# FILTER PRODUK
+# ============================================================
 st.subheader("Pilih Produk")
 
-daftar_provider = ["Semua Provider"] + sorted(produk_df["provider"].dropna().unique().tolist())
-provider_terpilih = st.selectbox("Filter Provider", daftar_provider)
+daftar_provider = [
+    "Semua Provider"
+] + sorted(
+    produk_df["provider"].dropna().unique().tolist()
+)
 
-keyword = st.text_input("Cari produk / kode voucher", placeholder="contoh: 5GB, KIVFIH0")
+provider_terpilih = st.selectbox(
+    "Filter Provider",
+    daftar_provider,
+)
+
+keyword = st.text_input(
+    "Cari produk / kode voucher",
+    placeholder="Contoh: 5GB atau KIVFIH0",
+)
 
 produk_tampil = produk_df.copy()
+
 if provider_terpilih != "Semua Provider":
-    produk_tampil = produk_tampil[produk_tampil["provider"] == provider_terpilih]
+    produk_tampil = produk_tampil[
+        produk_tampil["provider"] == provider_terpilih
+    ]
+
 if keyword:
     kw = keyword.lower()
     produk_tampil = produk_tampil[
-        produk_tampil["produk"].str.lower().str.contains(kw)
-        | produk_tampil["kode_voucher"].str.lower().str.contains(kw)
+        produk_tampil["produk"]
+        .astype(str)
+        .str.lower()
+        .str.contains(kw, na=False)
+        |
+        produk_tampil["kode_voucher"]
+        .astype(str)
+        .str.lower()
+        .str.contains(kw, na=False)
     ]
 
-st.caption(f"Menampilkan {len(produk_tampil)} dari {len(produk_df)} produk")
+st.caption(
+    f"Menampilkan {len(produk_tampil)} dari {len(produk_df)} produk"
+)
 
-# ============ DAFTAR PRODUK (dengan qty +/-) ============
+# ============================================================
+# HITUNG TOTAL DARI SEMUA PRODUK
+# ============================================================
 total_harga = 0
 detail_pesanan = []
 
-# hitung total dari SEMUA produk yang punya qty > 0, bukan cuma yang lagi difilter
 for _, row in produk_df.iterrows():
-    qty = st.session_state.qty.get(row["kode_voucher"], 0)
+    kode = row["kode_voucher"]
+    qty = st.session_state.qty.get(kode, 0)
+
     if qty > 0:
         subtotal = qty * row["harga"]
         total_harga += subtotal
+
         detail_pesanan.append(
             {
                 "provider": row["provider"],
-                "kode_voucher": row["kode_voucher"],
+                "kode_voucher": kode,
                 "produk": row["produk"],
                 "harga_satuan": row["harga"],
                 "qty": qty,
@@ -662,77 +975,127 @@ for _, row in produk_df.iterrows():
             }
         )
 
+# ============================================================
+# DAFTAR PRODUK
+# ============================================================
 produk_list = produk_tampil.to_dict("records")
 JUMLAH_KOLOM = 3
 
 for i in range(0, len(produk_list), JUMLAH_KOLOM):
-    baris_produk = produk_list[i : i + JUMLAH_KOLOM]
+    baris_produk = produk_list[i:i + JUMLAH_KOLOM]
     kolom = st.columns(JUMLAH_KOLOM)
 
     for kolom_idx, row in enumerate(baris_produk):
         kode = row["kode_voucher"]
         nama = row["produk"]
         harga = row["harga"]
+        provider = row["provider"]
+        qty_sekarang = st.session_state.qty.get(kode, 0)
 
         with kolom[kolom_idx]:
             with st.container(border=True):
                 st.markdown(f"**{nama}**")
+                st.caption(f"{provider} · {kode}")
+
                 if harga > 0:
-                    st.caption(f"{row['provider']} · {kode}")
                     st.markdown(f"**{format_rupiah(harga)}**")
                 else:
-                    st.caption(f"{row['provider']} · {kode}")
-                    st.caption("⚠️ harga belum tersedia")
+                    st.caption("⚠️ Harga belum tersedia")
 
-                c_minus, c_qty, c_plus = st.columns([1, 1.4, 1])
+                # ====================================================
+                # QUANTITY CONTROL BARU
+                # Tidak memakai number_input agar tidak muncul keyboard
+                # dan tidak stack aneh di layar HP.
+                # ====================================================
+                c_minus, c_qty, c_plus = st.columns(
+                    [1, 1.35, 1],
+                    gap="small",
+                    vertical_alignment="center",
+                )
+
                 with c_minus:
                     st.button(
-                        "−", key=f"minus_{kode}", on_click=kurang, args=(kode,),
-                        disabled=(harga == 0), use_container_width=False,
+                        "−",
+                        key=f"minus_{kode}",
+                        on_click=kurang,
+                        args=(kode,),
+                        disabled=(harga == 0),
+                        use_container_width=True,
+                        help="Kurangi jumlah",
                     )
+
                 with c_qty:
-                    # PENTING: TIDAK pakai parameter value=... di sini.
-                    # Nilainya sepenuhnya dikendalikan lewat session_state
-                    # (key="qtyinput_{kode}") yang diupdate oleh tambah(),
-                    # kurang(), dan ubah_qty_manual(). Ini yang menghilangkan
-                    # warning "default value but also set via Session State API".
-                    st.number_input(
-                        "Qty", min_value=0, step=1,
-                        key=f"qtyinput_{kode}", on_change=ubah_qty_manual, args=(kode,),
-                        disabled=(harga == 0), label_visibility="collapsed",
+                    st.markdown(
+                        f'<div class="wg-qty-value">{qty_sekarang}</div>',
+                        unsafe_allow_html=True,
                     )
+
                 with c_plus:
-                    # PENTING: label TIDAK boleh cuma "+" polos. Streamlit render
-                    # label tombol pakai Markdown, dan "+" sendirian di awal teks
-                    # itu SINTAKS bullet list Markdown -> jadinya "+" nya "dimakan"
-                    # jadi bullet kosong, bukan tampil sebagai karakter "+".
-                    # Makanya harus di-escape pakai backslash ("\+") supaya
-                    # kebaca sebagai tanda plus literal.
                     st.button(
-                        "\\+", key=f"plus_{kode}", on_click=tambah, args=(kode,),
-                        disabled=(harga == 0), use_container_width=False,
+                        "+",
+                        key=f"plus_{kode}",
+                        on_click=tambah,
+                        args=(kode,),
+                        disabled=(harga == 0),
+                        use_container_width=True,
+                        help="Tambah jumlah",
                     )
+
+                st.markdown(
+                    '<div class="wg-qty-label">Jumlah</div>',
+                    unsafe_allow_html=True,
+                )
 
 st.divider()
 
-# ============ RINGKASAN PESANAN ============
+# ============================================================
+# RINGKASAN
+# ============================================================
 if detail_pesanan:
-    with st.expander(f"🧾 Ringkasan pesanan ({len(detail_pesanan)} item dipilih)", expanded=True):
-        st.dataframe(pd.DataFrame(detail_pesanan), use_container_width=True, hide_index=True)
+    with st.expander(
+        f"🧾 Ringkasan pesanan "
+        f"({len(detail_pesanan)} item dipilih)",
+        expanded=True,
+    ):
+        st.dataframe(
+            pd.DataFrame(detail_pesanan),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 col_total1, col_total2 = st.columns([2, 1])
-with col_total2:
-    st.metric("Total Pesanan", format_rupiah(total_harga))
 
-# ============ SIMPAN KE GOOGLE SHEETS ============
-if st.button("🧾 Konfirmasi & Kirim Pesanan", type="primary", use_container_width=True, disabled=not sheet_ok):
+with col_total2:
+    st.metric(
+        "Total Pesanan",
+        format_rupiah(total_harga),
+    )
+
+# ============================================================
+# SIMPAN PESANAN
+# ============================================================
+if st.button(
+    "🧾 Konfirmasi & Kirim Pesanan",
+    type="primary",
+    use_container_width=True,
+    disabled=not sheet_ok,
+):
     if not nama_outlet or not no_wa:
-        st.error("Nama outlet dan No. WhatsApp wajib diisi.")
+        st.error(
+            "Nama outlet dan No. WhatsApp wajib diisi."
+        )
+
     elif total_harga == 0:
-        st.error("Pilih minimal 1 produk dengan quantity lebih dari 0.")
+        st.error(
+            "Pilih minimal 1 produk dengan quantity lebih dari 0."
+        )
+
     else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         order_id = buat_order_id()
+
         rows_to_append = [
             [
                 timestamp,
@@ -750,42 +1113,80 @@ if st.button("🧾 Konfirmasi & Kirim Pesanan", type="primary", use_container_wi
             ]
             for item in detail_pesanan
         ]
+
         try:
-            worksheet.append_rows(rows_to_append, value_input_option="USER_ENTERED")
-
-            # siapkan struk (gambar PNG) untuk didownload, disimpan di session_state
-            # supaya masih ada setelah st.rerun()
-            st.session_state.last_receipt = build_receipt_image(
-                order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga
+            worksheet.append_rows(
+                rows_to_append,
+                value_input_option="USER_ENTERED",
             )
-            nama_file_aman = nama_outlet.strip().replace(" ", "_")
-            st.session_state.last_receipt_name = f"struk_{order_id}_{nama_file_aman}.png"
 
-            # siapkan link WhatsApp berisi nota, siap kirim ke nomor outlet
+            st.session_state.last_receipt = (
+                build_receipt_image(
+                    order_id,
+                    nama_outlet,
+                    no_wa,
+                    alamat_pengiriman,
+                    timestamp,
+                    detail_pesanan,
+                    total_harga,
+                )
+            )
+
+            nama_file_aman = (
+                nama_outlet.strip().replace(" ", "_")
+            )
+
+            st.session_state.last_receipt_name = (
+                f"struk_{order_id}_{nama_file_aman}.png"
+            )
+
             nomor_wa_tujuan = format_no_wa(no_wa)
-            teks_nota = build_nota_wa_text(
-                order_id, nama_outlet, no_wa, alamat_pengiriman, timestamp, detail_pesanan, total_harga
-            )
-            st.session_state.last_wa_link = f"https://wa.me/{nomor_wa_tujuan}?text={quote(teks_nota)}"
-            st.session_state.last_order_id = order_id
 
+            teks_nota = build_nota_wa_text(
+                order_id,
+                nama_outlet,
+                no_wa,
+                alamat_pengiriman,
+                timestamp,
+                detail_pesanan,
+                total_harga,
+            )
+
+            st.session_state.last_wa_link = (
+                f"https://wa.me/{nomor_wa_tujuan}"
+                f"?text={quote(teks_nota)}"
+            )
+
+            st.session_state.last_order_id = order_id
             st.session_state.show_success = True
 
-            # JANGAN reset qty/qtyinput di sini secara langsung — widget-nya
-            # sudah sempat dirender di run ini (loop produk di atas), jadi
-            # session_state key milik widget tidak boleh diubah lagi sekarang.
-            # Cukup pasang flag, reset sebenarnya dieksekusi di awal script
-            # pada run berikutnya (sebelum widget qty dibuat).
+            # Reset pada rerun berikutnya, sebelum widget produk dibuat.
             st.session_state["_do_reset_qty"] = True
             st.rerun()
+
         except Exception as e:
-            st.error("Gagal menyimpan ke Google Sheets.")
+            st.error(
+                "Gagal menyimpan ke Google Sheets."
+            )
             st.exception(e)
 
-# ============ STATUS SUKSES + DOWNLOAD STRUK ============
-if st.session_state.show_success and st.session_state.last_receipt:
-    st.success(f"✅ Pesanan tersimpan! Order ID: **{st.session_state.last_order_id}**")
-    st.image(st.session_state.last_receipt, caption="Preview Struk Pesanan", width=340)
+# ============================================================
+# STATUS SUKSES
+# ============================================================
+if (
+    st.session_state.show_success
+    and st.session_state.last_receipt
+):
+    st.success(
+        "✅ Pesanan tersimpan! "
+        f"Order ID: **{st.session_state.last_order_id}**"
+    )
+
+    st.image(
+        st.session_state.last_receipt,
+        caption="Preview Struk Pesanan",
+        width=340,
+    )
 
     if st.session_state.last_wa_link:
         st.link_button(
@@ -795,6 +1196,7 @@ if st.session_state.show_success and st.session_state.last_receipt:
         )
 
     dl_col, close_col = st.columns([3, 1])
+
     with dl_col:
         st.download_button(
             "⬇️ Download Struk (Gambar)",
@@ -803,21 +1205,11 @@ if st.session_state.show_success and st.session_state.last_receipt:
             mime="image/png",
             use_container_width=True,
         )
+
     with close_col:
-        if st.button("Tutup", use_container_width=True):
+        if st.button(
+            "Tutup",
+            use_container_width=True,
+        ):
             st.session_state.show_success = False
             st.rerun()
-
-# ============ LIHAT DATA TERSIMPAN ============
-# Sementara dihapus/disembunyikan dulu — tinggal uncomment kalau mau dipakai lagi.
-# with st.expander("📄 Lihat data pesanan tersimpan"):
-#     if sheet_ok:
-#         try:
-#             data = worksheet.get_all_records()
-#             if data:
-#                 st.dataframe(pd.DataFrame(data), use_container_width=True)
-#             else:
-#                 st.info("Belum ada data tersimpan.")
-#         except Exception as e:
-#             st.error("Gagal mengambil data dari Google Sheets.")
-#             st.exception(e)
