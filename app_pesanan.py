@@ -1565,7 +1565,7 @@ with st.sidebar:
         st.caption(
             "Kirim nota dari HP/laptop yang nomor WhatsApp-nya "
             "adalah nomor admin, agar nota terkirim dari nomor "
-            "admin — bukan dari HP outlet."
+            "admin."
         )
 
         st.toggle(
