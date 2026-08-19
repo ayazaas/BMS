@@ -59,18 +59,22 @@ st.html(
        tidak makan tempat dan terlihat minimalis/formal. */
     div[data-testid="stVerticalBlockBorderWrapper"]
     div[data-testid="stVerticalBlock"] {
-        gap: 0.25rem !important;
+        gap: 0.05rem !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"]
     div[data-testid="element-container"] {
         margin-bottom: 0 !important;
+        margin-top: 0 !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stMarkdownContainer"] p {
-        margin-bottom: 0 !important;
-        line-height: 1.3 !important;
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    [data-testid="stCaptionContainer"] p {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.25 !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
@@ -96,6 +100,10 @@ st.html(
     /* ========================================================
        QTY BOX GABUNGAN ( - | angka | + ) JADI SATU PIL
        ======================================================== */
+    div[class*="st-key-qtybox-"] {
+        margin-top: 0.4rem !important;
+    }
+
     div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         align-items: stretch !important;
@@ -253,7 +261,7 @@ st.html(
 
         div[data-testid="stVerticalBlockBorderWrapper"]
         div[data-testid="stVerticalBlock"] {
-            gap: 0.2rem !important;
+            gap: 0.05rem !important;
         }
     }
 
