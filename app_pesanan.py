@@ -402,11 +402,10 @@ st.html(
             if (!trackHeight) return;
 
             if (state.max <= 0) {
-                root.style.display = "none";
+                thumb.style.height = trackHeight + "px";
+                thumb.style.transform = "translateY(0)";
                 return;
             }
-
-            root.style.display = "flex";
 
             const visibleRatio = state.total > 0
                 ? Math.min(1, state.viewport / state.total)
@@ -548,6 +547,8 @@ st.html(
         setTimeout(bindScrollListener, 100);
         setTimeout(bindScrollListener, 500);
         setTimeout(bindScrollListener, 1200);
+        setTimeout(bindScrollListener, 2500);
+        setTimeout(bindScrollListener, 5000);
     })();
     </script>
     """,
