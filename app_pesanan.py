@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit import html as st_html
 import pandas as pd
 from datetime import datetime
 from urllib.parse import quote
@@ -14,35 +15,25 @@ NAMA_WORKSHEET_PRODUK = "Produk"    # nama tab di Google Sheet untuk data produk
 
 st.set_page_config(page_title="Form Pesanan Outlet", page_icon="🛒", layout="centered")
 
-# ============ CSS KUSTOM ============
-st.markdown(
+# ============ CSS KUSTOM + SCROLL CONTROLLER ============
+# Scroll controller dibuat satu kali saja.
+# st.html(..., unsafe_allow_javascript=True) dipakai agar JavaScript benar-benar
+# dieksekusi oleh browser, bukan sekadar dirender sebagai HTML.
+
+st_html(
     """
     <style>
-    /* 1. Center-kan angka di kolom qty (number_input).
-          CATATAN PENTING: cara sebelumnya (nyembunyiin div tombol panah
-          bawaan pakai display:none / data-testid) TERNYATA gak selalu
-          ngefek, karena tergantung versi Streamlit, kadang RUANG KOSONG
-          bekas tombol panah itu masih tetap "di-reserve" sama parent
-          container-nya walau elemennya sendiri udah disembunyikan (jadi
-          keliatannya CSS-nya bener, tapi ternyata masih nyisa jarak gak
-          simetris di UI).
-          FIX YANG LEBIH ROBUST: daripada capek-capek nyembunyiin elemen
-          internal yang strukturnya bisa beda-beda, kita paksa aja KOTAK
-          VISUAL-nya (div[data-baseweb="input"]) punya lebar TETAP (fixed
-          width) lalu di-center pakai margin:auto. Dengan cara ini, gak
-          peduli ada sisa ruang kosong dari spinner bawaan atau nggak,
-          kotaknya tetap keliatan center karena sisa ruang di kolom qty
-          (yang lebih lebar dari kotaknya) kebagi rata otomatis di kiri-
-          kanan lewat margin auto. Ini gak bergantung struktur internal
-          Streamlit sama sekali, jadi harusnya work di versi manapun. */
+    /* 1. Center angka quantity */
     div[data-testid="stNumberInput"] {
         width: 100% !important;
         display: flex !important;
         justify-content: center !important;
     }
+
     div[data-testid="stNumberInput"] > div {
         width: auto !important;
     }
+
     div[data-testid="stNumberInput"] div[data-baseweb="input"] {
         width: 64px !important;
         max-width: 64px !important;
@@ -53,6 +44,7 @@ st.markdown(
         justify-content: center !important;
         overflow: hidden !important;
     }
+
     div[data-testid="stNumberInput"] input {
         text-align: center !important;
         width: 100% !important;
@@ -60,6 +52,7 @@ st.markdown(
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
+
     div[data-testid="stNumberInputStepDown"],
     div[data-testid="stNumberInputStepUp"] {
         display: none !important;
@@ -70,26 +63,21 @@ st.markdown(
         margin: 0 !important;
     }
 
-    /* 2. Perkecil tombol +/- yang ada di dalam kartu produk (container border) saja,
-          tombol utama (Konfirmasi & Kirim, Download, Tutup) tidak kena karena
-          posisinya di luar kartu produk. Pakai class .stButton (lebih stabil lintas
-          versi Streamlit dibanding data-testid saja) supaya CSS ini pasti nempel.
-          FIX: ditambahin display:flex + align-items/justify-content center supaya
-          simbol "+" ke-center sempurna (sebelumnya cuma andalin line-height, jadi
-          "+" nya ke-clip/ilang sementara "−" masih kebaca). */
+    /* 2. Tombol +/- pada kartu produk */
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
         height: 18px !important;
         min-height: 18px !important;
         width: 26px !important;
         min-width: 26px !important;
         max-width: 26px !important;
-        padding: 0px !important;
+        padding: 0 !important;
         border-radius: 5px !important;
         line-height: 1 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
     }
+
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button p,
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button div {
         font-size: 11px !important;
@@ -98,10 +86,7 @@ st.markdown(
         margin: 0 !important;
     }
 
-    /* 3. Scroll rail vertikal (track tipis + thumb yang gerak ngikutin posisi
-          scroll beneran + panah atas-bawah), gantiin 2 tombol bulat yang lama.
-          Desain minimalis abu-abu, nempel di sisi kanan layar, mirip scrollbar
-          custom, enak dipakai di HP. */
+    /* 3. Floating scroll controller */
     .scroll-rail-container {
         position: fixed;
         right: 8px;
@@ -110,17 +95,22 @@ st.markdown(
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
-        height: 60vh;
-        max-height: 480px;
+        gap: 6px;
+        height: 58vh;
+        max-height: 460px;
         min-height: 220px;
-        z-index: 9999;
+        z-index: 2147483647;
+        pointer-events: auto;
     }
+
     .scroll-rail-arrow {
-        background: none;
-        border: none;
-        padding: 10px;
-        margin: -6px;
+        background: rgba(255,255,255,0.94);
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        margin: 0;
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -129,161 +119,250 @@ st.markdown(
         -webkit-tap-highlight-color: transparent;
         user-select: none;
         -webkit-user-select: none;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.12);
     }
-    .scroll-rail-arrow svg {
-        width: 14px;
-        height: 14px;
-        stroke: #9E9E9E;
-        stroke-width: 3;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        fill: none;
-        pointer-events: none;
+
+    .scroll-rail-arrow:hover {
+        background: #f5f5f5;
     }
-    .scroll-rail-arrow:active svg {
-        stroke: #757575;
+
+    .scroll-rail-arrow:active {
+        transform: scale(0.92);
     }
+
+    .scroll-rail-arrow {
+        color: #666;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
     .scroll-rail-track {
         position: relative;
         flex: 1;
         width: 6px;
-        background-color: rgba(0, 0, 0, 0.08);
-        border-radius: 3px;
-        overflow: visible;
+        background: rgba(0,0,0,0.08);
+        border-radius: 4px;
         cursor: pointer;
-        touch-action: manipulation;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
     }
-    /* Hit-area lebih lebar dari track visualnya (biar gampang di-tap di HP),
-       tanpa ganggu posisi thumb yang tetap ngikutin lebar 6px aslinya. */
+
     .scroll-rail-track::before {
         content: "";
         position: absolute;
         top: 0;
         bottom: 0;
-        left: -10px;
-        right: -10px;
+        left: -12px;
+        right: -12px;
     }
+
     .scroll-rail-thumb {
         position: absolute;
         left: 0;
         top: 0;
         width: 6px;
-        border-radius: 3px;
-        background-color: #9E9E9E;
-        transition: background-color 0.15s;
+        min-height: 28px;
+        border-radius: 4px;
+        background: #999;
         pointer-events: none;
+    }
+
+    @media (max-width: 600px) {
+        .scroll-rail-container {
+            right: 5px;
+            height: 52vh;
+            min-height: 190px;
+            max-height: 380px;
+        }
+
+        .scroll-rail-arrow {
+            width: 32px;
+            height: 32px;
+        }
     }
     </style>
 
-    <div class="scroll-rail-container">
-        <button class="scroll-rail-arrow" title="Scroll ke atas"
-            onclick="(function(){
-                var doc = window.parent && window.parent.document ? window.parent.document : document;
-                var kandidat = [
-                    doc.querySelector('section.main'),
-                    doc.querySelector('[data-testid=stAppViewContainer]'),
-                    doc.querySelector('[data-testid=stMain]'),
-                    doc.querySelector('.main'),
-                    doc.scrollingElement,
-                    doc.documentElement
-                ];
-                var target = null;
-                for (var i = 0; i < kandidat.length; i++) {
-                    var el = kandidat[i];
-                    if (el && el.scrollHeight > el.clientHeight + 5) { target = el; break; }
-                }
-                if (!target) { target = doc.scrollingElement || doc.documentElement; }
-                target.scrollBy({top: -300, behavior: 'smooth'});
-            })()">
-            <svg viewBox="0 0 24 24"><polyline points="6 15 12 9 18 15"></polyline></svg>
-        </button>
-        <div class="scroll-rail-track" id="scrollRailTrack"
-            onclick="(function(e){
-                var doc = window.parent && window.parent.document ? window.parent.document : document;
-                var kandidat = [
-                    doc.querySelector('section.main'),
-                    doc.querySelector('[data-testid=stAppViewContainer]'),
-                    doc.querySelector('[data-testid=stMain]'),
-                    doc.querySelector('.main'),
-                    doc.scrollingElement,
-                    doc.documentElement
-                ];
-                var target = null;
-                for (var i = 0; i < kandidat.length; i++) {
-                    var el = kandidat[i];
-                    if (el && el.scrollHeight > el.clientHeight + 5) { target = el; break; }
-                }
-                if (!target) { target = doc.scrollingElement || doc.documentElement; }
-                var track = doc.getElementById('scrollRailTrack');
-                var rect = track.getBoundingClientRect();
-                var clickRatio = (event.clientY - rect.top) / rect.height;
-                var maxScroll = target.scrollHeight - target.clientHeight;
-                target.scrollTo({top: clickRatio * maxScroll, behavior: 'smooth'});
-            })()">
-            <div class="scroll-rail-thumb" id="scrollRailThumb"></div>
+    <div class="scroll-rail-container" id="wgScrollRail">
+        <button class="scroll-rail-arrow" id="wgScrollUp"
+                type="button" title="Scroll ke atas" aria-label="Scroll ke atas">↑</button>
+
+        <div class="scroll-rail-track" id="wgScrollTrack"
+             title="Klik untuk berpindah posisi">
+            <div class="scroll-rail-thumb" id="wgScrollThumb"></div>
         </div>
-        <button class="scroll-rail-arrow" title="Scroll ke bawah"
-            onclick="(function(){
-                var doc = window.parent && window.parent.document ? window.parent.document : document;
-                var kandidat = [
-                    doc.querySelector('section.main'),
-                    doc.querySelector('[data-testid=stAppViewContainer]'),
-                    doc.querySelector('[data-testid=stMain]'),
-                    doc.querySelector('.main'),
-                    doc.scrollingElement,
-                    doc.documentElement
-                ];
-                var target = null;
-                for (var i = 0; i < kandidat.length; i++) {
-                    var el = kandidat[i];
-                    if (el && el.scrollHeight > el.clientHeight + 5) { target = el; break; }
-                }
-                if (!target) { target = doc.scrollingElement || doc.documentElement; }
-                target.scrollBy({top: 300, behavior: 'smooth'});
-            })()">
-            <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
+
+        <button class="scroll-rail-arrow" id="wgScrollDown"
+                type="button" title="Scroll ke bawah" aria-label="Scroll ke bawah">↓</button>
     </div>
 
-    <img src="tidak-ada-file-ini.png" style="display:none" onerror="(function(){
-        var doc = window.parent && window.parent.document ? window.parent.document : document;
-        var kandidat = [
-            doc.querySelector('section.main'),
-            doc.querySelector('[data-testid=stAppViewContainer]'),
-            doc.querySelector('[data-testid=stMain]'),
-            doc.querySelector('.main'),
-            doc.scrollingElement,
-            doc.documentElement
-        ];
-        var target = null;
-        for (var i = 0; i < kandidat.length; i++) {
-            var el = kandidat[i];
-            if (el && el.scrollHeight > el.clientHeight + 5) { target = el; break; }
-        }
-        if (!target) { target = doc.scrollingElement || doc.documentElement; }
-        var track = doc.getElementById('scrollRailTrack');
-        var thumb = doc.getElementById('scrollRailThumb');
-        if (!track || !thumb) { return; }
-        function updateThumb(){
-            var trackH = track.clientHeight;
-            var maxScroll = target.scrollHeight - target.clientHeight;
-            var ratioVisible = target.clientHeight / target.scrollHeight;
-            var thumbH = Math.max(trackH * ratioVisible, 24);
-            var scrollRatio = maxScroll > 0 ? (target.scrollTop / maxScroll) : 0;
-            var thumbTop = scrollRatio * (trackH - thumbH);
-            thumb.style.height = thumbH + 'px';
-            thumb.style.top = thumbTop + 'px';
-        }
-        if (!target.__railScrollBound) {
-            target.__railScrollBound = true;
-            target.addEventListener('scroll', updateThumb, {passive: true});
-        }
-        updateThumb();
-    })();" />
-    """,
-    unsafe_allow_html=True,
-)
+    <script>
+    (() => {
+        const root = document.getElementById("wgScrollRail");
+        const up = document.getElementById("wgScrollUp");
+        const down = document.getElementById("wgScrollDown");
+        const track = document.getElementById("wgScrollTrack");
+        const thumb = document.getElementById("wgScrollThumb");
 
+        if (!root || !up || !down || !track || !thumb) return;
+
+        // Ambil document utama Streamlit.
+        const doc = window.parent?.document || document;
+
+        function getScrollTarget() {
+            const candidates = [
+                doc.querySelector('[data-testid="stAppViewContainer"]'),
+                doc.querySelector('[data-testid="stMain"]'),
+                doc.querySelector('section.main'),
+                doc.querySelector('.main'),
+                doc.scrollingElement,
+                doc.documentElement,
+                doc.body
+            ];
+
+            // Pilih elemen yang benar-benar memiliki area scroll.
+            for (const el of candidates) {
+                if (el && el.scrollHeight > el.clientHeight + 5) {
+                    return el;
+                }
+            }
+
+            return doc.scrollingElement || doc.documentElement || doc.body;
+        }
+
+        function updateThumb() {
+            const target = getScrollTarget();
+            const trackHeight = track.clientHeight;
+
+            if (!target || trackHeight <= 0) return;
+
+            const maxScroll = Math.max(
+                0,
+                target.scrollHeight - target.clientHeight
+            );
+
+            const visibleRatio = target.scrollHeight > 0
+                ? target.clientHeight / target.scrollHeight
+                : 1;
+
+            const thumbHeight = Math.max(
+                28,
+                Math.min(trackHeight, trackHeight * visibleRatio)
+            );
+
+            const maxThumbTop = Math.max(
+                0,
+                trackHeight - thumbHeight
+            );
+
+            const ratio = maxScroll > 0
+                ? target.scrollTop / maxScroll
+                : 0;
+
+            thumb.style.height = thumbHeight + "px";
+            thumb.style.transform =
+                "translateY(" + (ratio * maxThumbTop) + "px)";
+        }
+
+        function scrollByAmount(amount) {
+            const target = getScrollTarget();
+            if (!target) return;
+
+            target.scrollBy({
+                top: amount,
+                left: 0,
+                behavior: "smooth"
+            });
+        }
+
+        up.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollByAmount(-300);
+        });
+
+        down.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollByAmount(300);
+        });
+
+        track.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const target = getScrollTarget();
+            if (!target) return;
+
+            const rect = track.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const ratio = Math.max(
+                0,
+                Math.min(1, y / rect.height)
+            );
+
+            const maxScroll = Math.max(
+                0,
+                target.scrollHeight - target.clientHeight
+            );
+
+            target.scrollTo({
+                top: ratio * maxScroll,
+                left: 0,
+                behavior: "smooth"
+            });
+        });
+
+        // Update posisi thumb ketika halaman di-scroll.
+        let currentTarget = null;
+
+        function bindScrollListener() {
+            const target = getScrollTarget();
+
+            if (!target || target === currentTarget) {
+                updateThumb();
+                return;
+            }
+
+            if (currentTarget) {
+                currentTarget.removeEventListener(
+                    "scroll",
+                    updateThumb
+                );
+            }
+
+            currentTarget = target;
+            currentTarget.addEventListener(
+                "scroll",
+                updateThumb,
+                { passive: true }
+            );
+
+            updateThumb();
+        }
+
+        bindScrollListener();
+
+        // Streamlit bisa mengganti DOM setelah rerun.
+        setInterval(() => {
+            bindScrollListener();
+        }, 500);
+
+        window.addEventListener("resize", updateThumb);
+
+        if (window.ResizeObserver) {
+            const observer = new ResizeObserver(() => {
+                bindScrollListener();
+            });
+
+            observer.observe(doc.documentElement);
+        }
+    })();
+    </script>
+    """,
+    unsafe_allow_javascript=True,
+)
 
 # ============ KONEKSI GOOGLE SHEETS ============
 @st.cache_resource
