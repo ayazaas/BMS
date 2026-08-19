@@ -23,536 +23,423 @@ st.set_page_config(
 # ============================================================
 # CSS + FLOATING SCROLL CONTROLLER + QTY BOX GABUNGAN
 # ============================================================
-st.html(
-    """
-    <style>
-    /* ========================================================
-       GLOBAL MOBILE / DESKTOP
-       ======================================================== */
-    .block-container {
-        padding-top: clamp(1rem, 3vw, 2.5rem) !important;
-        padding-bottom: 5rem !important;
-    }
+_SCROLL_CSS = """
+<style>
+/* ========================================================
+   GLOBAL MOBILE / DESKTOP
+   ======================================================== */
+.block-container {
+    padding-top: clamp(1rem, 3vw, 2.5rem) !important;
+    padding-bottom: 5rem !important;
+}
 
-    /* ========================================================
-       PRODUCT CARD
-       ======================================================== */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 14px !important;
-        padding: 0.75rem !important;
-    }
+/* ========================================================
+   PRODUCT CARD
+   ======================================================== */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 14px !important;
+    padding: 0.75rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stHorizontalBlock"] > div {
-        min-width: 0 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
 
-    /* Rapatkan jarak antar elemen di dalam kartu produk
-       (nama produk, provider/kode, harga, qty box) supaya
-       tidak makan tempat dan terlihat minimalis/formal. */
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.05rem !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stVerticalBlock"] {
+    gap: 0.05rem !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="element-container"] {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="element-container"] {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stVerticalBlockBorderWrapper"]
-    [data-testid="stCaptionContainer"] p {
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.25 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stMarkdownContainer"] p,
+div[data-testid="stVerticalBlockBorderWrapper"]
+[data-testid="stCaptionContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.25 !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
-        width: 100% !important;
-        min-width: 0 !important;
-        height: 40px !important;
-        min-height: 40px !important;
-        padding: 0 !important;
-        border-radius: 10px !important;
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
 
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button p,
-    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button div {
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-    }
+div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button p,
+div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button div {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+}
 
-    /* ========================================================
-       QTY BOX GABUNGAN ( - | angka | + ) JADI SATU PIL
-       ======================================================== */
-    div[class*="st-key-qtybox-"] {
-        margin-top: 0.4rem !important;
-    }
+/* ========================================================
+   QTY BOX GABUNGAN ( - | angka | + ) JADI SATU PIL
+   ======================================================== */
+div[class*="st-key-qtybox-"] {
+    margin-top: 0.4rem !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        align-items: stretch !important;
-        gap: 0 !important;
-        border: 1px solid rgba(49, 51, 63, 0.20);
-        border-radius: 10px;
-        overflow: hidden;
-        background: rgba(250, 250, 250, 0.8);
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    border: 1px solid rgba(49, 51, 63, 0.20);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250, 250, 250, 0.8);
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
-        min-width: 0 !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
 
-    /* tombol - dan + custom: hilangkan border/radius individual */
-    div[class*="st-key-qtybox-"] .stButton > button {
-        border: none !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        height: 40px !important;
-    }
+div[class*="st-key-qtybox-"] .stButton > button {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    height: 40px !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:first-child .stButton > button {
-        border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:first-child .stButton > button {
+    border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:last-child .stButton > button {
-        border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div:last-child .stButton > button {
+    border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
 
-    /* input angka di tengah: transparan, nyatu, center text */
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] {
-        background: transparent !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] {
+    background: transparent !important;
+}
 
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input {
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        text-align: center !important;
-        height: 40px !important;
-        font-weight: 700 !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    height: 40px !important;
+    font-weight: 700 !important;
+}
 
-    /* sembunyikan tombol +/- bawaan number_input (pakai tombol custom sendiri) */
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepUp"],
-    div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepDown"] {
-        display: none !important;
-    }
+div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepUp"],
+div[class*="st-key-qtybox-"] div[data-testid="stNumberInputStepDown"] {
+    display: none !important;
+}
 
-    /* sembunyikan teks "Press Enter to apply" */
-    div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
-        display: none !important;
-    }
+div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
+    display: none !important;
+}
 
-    /* ========================================================
-       FLOATING SCROLL CONTROLLER
-       ======================================================== */
+/* ========================================================
+   FLOATING SCROLL CONTROLLER
+   ======================================================== */
+.wg-scroll-rail {
+    position: fixed;
+    right: max(6px, env(safe-area-inset-right));
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 999999;
+    width: clamp(34px, 8vw, 42px);
+    height: min(58vh, 430px);
+    max-height: calc(100dvh - 120px);
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.wg-scroll-btn {
+    width: clamp(32px, 8vw, 38px);
+    height: clamp(32px, 8vw, 38px);
+    flex: 0 0 auto;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.96);
+    color: #555;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.wg-scroll-btn:active {
+    transform: scale(0.92);
+    background: #f2f2f2;
+}
+
+.wg-scroll-track {
+    position: relative;
+    flex: 1 1 auto;
+    width: 7px;
+    min-height: 110px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.09);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+    cursor: pointer;
+    touch-action: none;
+}
+
+.wg-scroll-thumb {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 7px;
+    min-height: 30px;
+    border-radius: 999px;
+    background: rgba(80,80,80,0.55);
+    pointer-events: none;
+    will-change: transform, height;
+}
+
+@media (max-width: 600px) {
     .wg-scroll-rail {
-        position: fixed;
-        right: max(6px, env(safe-area-inset-right));
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 999999;
-        width: clamp(34px, 8vw, 42px);
-        height: min(58vh, 430px);
-        max-height: calc(100dvh - 120px);
-        min-height: 190px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 7px;
-        pointer-events: auto;
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
+        right: max(4px, env(safe-area-inset-right));
+        height: min(48vh, 340px);
+        min-height: 170px;
     }
-
-    .wg-scroll-btn {
-        width: clamp(32px, 8vw, 38px);
-        height: clamp(32px, 8vw, 38px);
-        flex: 0 0 auto;
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 50%;
-        background: rgba(255,255,255,0.96);
-        color: #555;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.14);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
-        line-height: 1;
-        cursor: pointer;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
+    div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input,
+    div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
+        height: 42px !important;
+        min-height: 42px !important;
     }
-
-    .wg-scroll-btn:active {
-        transform: scale(0.92);
-        background: #f2f2f2;
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        padding: 0.65rem !important;
     }
-
-    .wg-scroll-track {
-        position: relative;
-        flex: 1 1 auto;
-        width: 7px;
-        min-height: 110px;
-        border-radius: 999px;
-        background: rgba(0,0,0,0.09);
-        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
-        cursor: pointer;
-        touch-action: none;
+    .block-container {
+        padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
     }
+}
 
-    .wg-scroll-track::before {
-        content: "";
-        position: absolute;
-        left: -13px;
-        right: -13px;
-        top: 0;
-        bottom: 0;
-    }
+@media (max-width: 380px) {
+    .wg-scroll-rail { width: 32px; height: min(44vh, 300px); }
+    .wg-scroll-track { width: 6px; }
+    .wg-scroll-thumb { width: 6px; }
+}
+</style>
+"""
 
-    .wg-scroll-thumb {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 7px;
-        min-height: 30px;
-        border-radius: 999px;
-        background: rgba(80,80,80,0.55);
-        pointer-events: none;
-        will-change: transform, height;
-    }
-
-    @media (max-width: 600px) {
-        .wg-scroll-rail {
-            right: max(4px, env(safe-area-inset-right));
-            height: min(48vh, 340px);
-            min-height: 170px;
-        }
-
-        div[class*="st-key-qtybox-"] div[data-testid="stNumberInput"] input,
-        div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
-            height: 42px !important;
-            min-height: 42px !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.65rem !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"]
-        div[data-testid="stVerticalBlock"] {
-            gap: 0.05rem !important;
-        }
-    }
-
-    @media (max-width: 380px) {
-        .wg-scroll-rail {
-            width: 32px;
-            height: min(44vh, 300px);
-        }
-
-        .wg-scroll-track {
-            width: 6px;
-        }
-
-        .wg-scroll-thumb {
-            width: 6px;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .block-container {
-            padding-right: max(2.9rem, calc(1rem + env(safe-area-inset-right))) !important;
-        }
-    }
-    </style>
-
-    <div class="wg-scroll-rail" id="wgScrollRail" aria-label="Kontrol scroll">
-        <button class="wg-scroll-btn" id="wgScrollUp"
-                type="button" aria-label="Scroll ke atas" title="Scroll ke atas">↑</button>
-
-        <div class="wg-scroll-track" id="wgScrollTrack"
-             aria-label="Posisi halaman" title="Klik atau geser posisi scroll">
-            <div class="wg-scroll-thumb" id="wgScrollThumb"></div>
-        </div>
-
-        <button class="wg-scroll-btn" id="wgScrollDown"
-                type="button" aria-label="Scroll ke bawah" title="Scroll ke bawah">↓</button>
+# --- Versi UTAMA: pakai unsafe_allow_javascript (butuh Streamlit versi baru,
+#     fitur ini baru ada mulai rilis 2025). Ada drag thumb + auto-hide rail. ---
+_SCROLL_HTML_ADVANCED = _SCROLL_CSS + """
+<div class="wg-scroll-rail" id="wgScrollRail" aria-label="Kontrol scroll">
+    <button class="wg-scroll-btn" id="wgScrollUp" type="button" title="Scroll ke atas">↑</button>
+    <div class="wg-scroll-track" id="wgScrollTrack" title="Klik atau geser posisi scroll">
+        <div class="wg-scroll-thumb" id="wgScrollThumb"></div>
     </div>
+    <button class="wg-scroll-btn" id="wgScrollDown" type="button" title="Scroll ke bawah">↓</button>
+</div>
 
-    <script>
-    (() => {
-        const root = document.getElementById("wgScrollRail");
-        const up = document.getElementById("wgScrollUp");
-        const down = document.getElementById("wgScrollDown");
-        const track = document.getElementById("wgScrollTrack");
-        const thumb = document.getElementById("wgScrollThumb");
+<script>
+(() => {
+    // GUARD: cegah listener dobel kalau blok ini ke-render ulang tiap rerun Streamlit
+    const root = document.getElementById("wgScrollRail");
+    if (!root || root.dataset.wgBound === "true") { return; }
+    root.dataset.wgBound = "true";
 
-        if (!root || !up || !down || !track || !thumb) return;
+    const up = document.getElementById("wgScrollUp");
+    const down = document.getElementById("wgScrollDown");
+    const track = document.getElementById("wgScrollTrack");
+    const thumb = document.getElementById("wgScrollThumb");
+    if (!up || !down || !track || !thumb) return;
 
-        const doc = document;
+    const doc = document;
 
-        function isScrollable(el) {
-            if (!el) return false;
-            return el.scrollHeight > el.clientHeight + 8;
-        }
+    function isScrollable(el) {
+        return !!el && el.scrollHeight > el.clientHeight + 8;
+    }
 
-        function getScrollTarget() {
-            const candidates = [
-                doc.querySelector('[data-testid="stAppViewContainer"]'),
-                doc.querySelector('[data-testid="stMain"]'),
-                doc.querySelector('section.main'),
-                doc.scrollingElement,
-                doc.documentElement,
-                doc.body
-            ];
+    function getScrollTarget() {
+        const candidates = [
+            doc.querySelector('[data-testid="stAppViewContainer"]'),
+            doc.querySelector('[data-testid="stMain"]'),
+            doc.querySelector('section.main'),
+            doc.scrollingElement,
+            doc.documentElement,
+            doc.body
+        ];
+        for (const el of candidates) { if (isScrollable(el)) return el; }
+        return null;
+    }
 
-            for (const el of candidates) {
-                if (isScrollable(el)) return el;
-            }
-
-            return null;
-        }
-
-        function getState() {
-            const target = getScrollTarget();
-
-            if (!target) {
-                return {
-                    target: null,
-                    top: window.scrollY || 0,
-                    max: Math.max(
-                        0,
-                        doc.documentElement.scrollHeight - window.innerHeight
-                    ),
-                    viewport: window.innerHeight,
-                    total: doc.documentElement.scrollHeight
-                };
-            }
-
-            const max = Math.max(0, target.scrollHeight - target.clientHeight);
-
+    function getState() {
+        const target = getScrollTarget();
+        if (!target) {
             return {
-                target,
-                top: target.scrollTop || 0,
-                max,
-                viewport: target.clientHeight,
-                total: target.scrollHeight
+                target: null,
+                top: window.scrollY || 0,
+                max: Math.max(0, doc.documentElement.scrollHeight - window.innerHeight),
+                viewport: window.innerHeight,
+                total: doc.documentElement.scrollHeight
             };
         }
+        const max = Math.max(0, target.scrollHeight - target.clientHeight);
+        return { target, top: target.scrollTop || 0, max, viewport: target.clientHeight, total: target.scrollHeight };
+    }
 
-        function scrollToPosition(top, smooth = true) {
-            const state = getState();
-            const safeTop = Math.max(0, Math.min(top, state.max));
-
-            if (state.target) {
-                try {
-                    state.target.scrollTo({
-                        top: safeTop,
-                        left: 0,
-                        behavior: smooth ? "smooth" : "auto"
-                    });
-                    return;
-                } catch (e) {
-                    state.target.scrollTop = safeTop;
-                    return;
-                }
-            }
-
-            window.scrollTo({
-                top: safeTop,
-                left: 0,
-                behavior: smooth ? "smooth" : "auto"
-            });
+    function scrollToPosition(top, smooth = true) {
+        const state = getState();
+        const safeTop = Math.max(0, Math.min(top, state.max));
+        if (state.target) {
+            try { state.target.scrollTo({ top: safeTop, left: 0, behavior: smooth ? "smooth" : "auto" }); return; }
+            catch (e) { state.target.scrollTop = safeTop; return; }
         }
+        window.scrollTo({ top: safeTop, left: 0, behavior: smooth ? "smooth" : "auto" });
+    }
 
-        function scrollByAmount(direction) {
-            const state = getState();
-            const amount = Math.max(
-                180,
-                Math.min(520, Math.round(state.viewport * 0.72))
-            );
-            scrollToPosition(state.top + direction * amount, true);
+    function scrollByAmount(direction) {
+        const state = getState();
+        const amount = Math.max(180, Math.min(520, Math.round(state.viewport * 0.72)));
+        scrollToPosition(state.top + direction * amount, true);
+    }
+
+    function updateThumb() {
+        const state = getState();
+        const trackHeight = track.clientHeight;
+        if (!trackHeight) return;
+        if (state.max <= 0) { root.style.display = "none"; return; }
+        root.style.display = "flex";
+        const visibleRatio = state.total > 0 ? Math.min(1, state.viewport / state.total) : 1;
+        const thumbHeight = Math.max(30, Math.min(trackHeight, trackHeight * visibleRatio));
+        const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
+        const ratio = state.max > 0 ? state.top / state.max : 0;
+        thumb.style.height = thumbHeight + "px";
+        thumb.style.transform = "translateY(" + (ratio * maxThumbTop) + "px)";
+    }
+
+    up.addEventListener("click", (e) => { e.preventDefault(); scrollByAmount(-1); });
+    down.addEventListener("click", (e) => { e.preventDefault(); scrollByAmount(1); });
+
+    track.addEventListener("click", (event) => {
+        if (event.target === thumb) return;
+        const state = getState();
+        if (state.max <= 0) return;
+        const rect = track.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+        scrollToPosition(ratio * state.max, true);
+    });
+
+    let dragging = false;
+    function dragTo(clientY) {
+        const state = getState();
+        const rect = track.getBoundingClientRect();
+        const visibleRatio = state.total > 0 ? Math.min(1, state.viewport / state.total) : 1;
+        const thumbHeight = Math.max(30, Math.min(track.clientHeight, track.clientHeight * visibleRatio));
+        const maxThumbTop = Math.max(0, track.clientHeight - thumbHeight);
+        if (maxThumbTop <= 0 || state.max <= 0) return;
+        const y = Math.max(0, Math.min(maxThumbTop, clientY - rect.top - thumbHeight / 2));
+        scrollToPosition((y / maxThumbTop) * state.max, false);
+    }
+    thumb.addEventListener("pointerdown", (e) => { dragging = true; thumb.setPointerCapture?.(e.pointerId); e.preventDefault(); });
+    track.addEventListener("pointermove", (e) => { if (dragging) dragTo(e.clientY); });
+    track.addEventListener("pointerup", () => { dragging = false; });
+    track.addEventListener("pointercancel", () => { dragging = false; });
+
+    let currentTarget = null;
+    function bindScrollListener() {
+        const target = getScrollTarget();
+        if (target !== currentTarget) {
+            if (currentTarget) currentTarget.removeEventListener("scroll", updateThumb);
+            currentTarget = target;
+            if (currentTarget) currentTarget.addEventListener("scroll", updateThumb, { passive: true });
         }
+        updateThumb();
+    }
+    bindScrollListener();
 
-        function updateThumb() {
-            const state = getState();
-            const trackHeight = track.clientHeight;
+    if (!window.__wgScrollObserver) {
+        window.__wgScrollObserver = new MutationObserver(bindScrollListener);
+        window.__wgScrollObserver.observe(doc.body, { childList: true, subtree: true });
+    }
 
-            if (!trackHeight) return;
+    window.addEventListener("scroll", updateThumb, { passive: true });
+    window.addEventListener("resize", updateThumb);
+    setTimeout(bindScrollListener, 100);
+    setTimeout(bindScrollListener, 500);
+    setTimeout(bindScrollListener, 1200);
+})();
+</script>
+"""
 
-            if (state.max <= 0) {
-                root.style.display = "none";
-                return;
-            }
+# --- Versi FALLBACK: pakai atribut onclick, JALAN DI SEMUA VERSI STREAMLIT
+#     (gak butuh unsafe_allow_javascript). Fitur drag thumb hilang, tapi
+#     klik atas/bawah/track tetap berfungsi normal. ---
+_SCROLL_HTML_FALLBACK = _SCROLL_CSS + """
+<div class="wg-scroll-rail" id="wgScrollRailFB">
+    <button class="wg-scroll-btn" title="Scroll ke atas"
+        onclick="(function(){
+            var doc = window.parent && window.parent.document ? window.parent.document : document;
+            var kandidat = [doc.querySelector('[data-testid=stAppViewContainer]'), doc.querySelector('[data-testid=stMain]'), doc.querySelector('section.main'), doc.scrollingElement, doc.documentElement];
+            var t = null;
+            for (var i=0;i<kandidat.length;i++){ var el = kandidat[i]; if (el && el.scrollHeight > el.clientHeight+8){ t = el; break; } }
+            if (!t) t = doc.scrollingElement || doc.documentElement;
+            t.scrollTo({top:0, behavior:'smooth'});
+        })()">↑</button>
+    <div class="wg-scroll-track" onclick="(function(evt){
+            var doc = window.parent && window.parent.document ? window.parent.document : document;
+            var kandidat = [doc.querySelector('[data-testid=stAppViewContainer]'), doc.querySelector('[data-testid=stMain]'), doc.querySelector('section.main'), doc.scrollingElement, doc.documentElement];
+            var t = null;
+            for (var i=0;i<kandidat.length;i++){ var el = kandidat[i]; if (el && el.scrollHeight > el.clientHeight+8){ t = el; break; } }
+            if (!t) t = doc.scrollingElement || doc.documentElement;
+            var rect = evt.currentTarget.getBoundingClientRect();
+            var pct = (evt.clientY - rect.top) / rect.height;
+            if (pct<0) pct=0; if (pct>1) pct=1;
+            var max = t.scrollHeight - t.clientHeight;
+            t.scrollTo({top: pct*max, behavior:'smooth'});
+        })(event)"><div class="wg-scroll-thumb"></div></div>
+    <button class="wg-scroll-btn" title="Scroll ke bawah"
+        onclick="(function(){
+            var doc = window.parent && window.parent.document ? window.parent.document : document;
+            var kandidat = [doc.querySelector('[data-testid=stAppViewContainer]'), doc.querySelector('[data-testid=stMain]'), doc.querySelector('section.main'), doc.scrollingElement, doc.documentElement];
+            var t = null;
+            for (var i=0;i<kandidat.length;i++){ var el = kandidat[i]; if (el && el.scrollHeight > el.clientHeight+8){ t = el; break; } }
+            if (!t) t = doc.scrollingElement || doc.documentElement;
+            t.scrollTo({top: t.scrollHeight, behavior:'smooth'});
+        })()">↓</button>
+</div>
+"""
 
-            root.style.display = "flex";
+try:
+    # Coba pakai versi lengkap (drag thumb, auto-hide) — butuh Streamlit baru.
+    st.html(_SCROLL_HTML_ADVANCED, unsafe_allow_javascript=True)
+except TypeError:
+    # Streamlit versi lama belum kenal unsafe_allow_javascript -> pindah ke
+    # fallback supaya app TETAP JALAN dan tombol scroll TETAP MUNCUL.
+    st.markdown(_SCROLL_HTML_FALLBACK, unsafe_allow_html=True)
 
-            const visibleRatio = state.total > 0
-                ? Math.min(1, state.viewport / state.total)
-                : 1;
-
-            const thumbHeight = Math.max(
-                30,
-                Math.min(trackHeight, trackHeight * visibleRatio)
-            );
-
-            const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
-            const ratio = state.max > 0 ? state.top / state.max : 0;
-
-            thumb.style.height = thumbHeight + "px";
-            thumb.style.transform =
-                "translateY(" + (ratio * maxThumbTop) + "px)";
-        }
-
-        up.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            scrollByAmount(-1);
-        }, { passive: false });
-
-        down.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            scrollByAmount(1);
-        }, { passive: false });
-
-        track.addEventListener("click", (event) => {
-            if (event.target === thumb) return;
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            const state = getState();
-            if (state.max <= 0) return;
-
-            const rect = track.getBoundingClientRect();
-            const ratio = Math.max(
-                0,
-                Math.min(1, (event.clientY - rect.top) / rect.height)
-            );
-
-            scrollToPosition(ratio * state.max, true);
-        }, { passive: false });
-
-        let dragging = false;
-
-        function dragTo(clientY) {
-            const state = getState();
-            const rect = track.getBoundingClientRect();
-
-            const visibleRatio = state.total > 0
-                ? Math.min(1, state.viewport / state.total)
-                : 1;
-
-            const thumbHeight = Math.max(
-                30,
-                Math.min(track.clientHeight, track.clientHeight * visibleRatio)
-            );
-
-            const maxThumbTop = Math.max(
-                0,
-                track.clientHeight - thumbHeight
-            );
-
-            if (maxThumbTop <= 0 || state.max <= 0) return;
-
-            const y = Math.max(
-                0,
-                Math.min(maxThumbTop, clientY - rect.top - thumbHeight / 2)
-            );
-
-            scrollToPosition((y / maxThumbTop) * state.max, false);
-        }
-
-        thumb.addEventListener("pointerdown", (event) => {
-            dragging = true;
-            thumb.setPointerCapture?.(event.pointerId);
-            event.preventDefault();
-            event.stopPropagation();
-        }, { passive: false });
-
-        track.addEventListener("pointermove", (event) => {
-            if (!dragging) return;
-            dragTo(event.clientY);
-            event.preventDefault();
-        }, { passive: false });
-
-        track.addEventListener("pointerup", (event) => {
-            dragging = false;
-            event.preventDefault();
-        }, { passive: false });
-
-        track.addEventListener("pointercancel", () => {
-            dragging = false;
-        });
-
-        let currentTarget = null;
-
-        function bindScrollListener() {
-            const target = getScrollTarget();
-
-            if (target !== currentTarget) {
-                if (currentTarget) {
-                    currentTarget.removeEventListener("scroll", updateThumb);
-                }
-
-                currentTarget = target;
-
-                if (currentTarget) {
-                    currentTarget.addEventListener(
-                        "scroll",
-                        updateThumb,
-                        { passive: true }
-                    );
-                }
-            }
-
-            updateThumb();
-        }
-
-        bindScrollListener();
-
-        const observer = new MutationObserver(() => {
-            bindScrollListener();
-        });
-
-        observer.observe(doc.body, {
-            childList: true,
-            subtree: true
-        });
-
-        window.addEventListener("scroll", updateThumb, { passive: true });
-        window.addEventListener("resize", updateThumb);
-
-        setTimeout(bindScrollListener, 100);
-        setTimeout(bindScrollListener, 500);
-        setTimeout(bindScrollListener, 1200);
-    })();
-    </script>
-    """,
-    unsafe_allow_javascript=True,
-)
 
 # ============================================================
 # KONEKSI GOOGLE SHEETS
@@ -638,12 +525,17 @@ if "last_wa_link" not in st.session_state:
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
-# Reset qty dilakukan SEBELUM kartu produk dibuat.
+# Reset qty dilakukan SEBELUM kartu produk (dan widget qtyinput_) dibuat.
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
         st.session_state[f"qtyinput_{kode}"] = 0
     st.session_state["_do_reset_qty"] = False
+
+# Inisialisasi key widget qtyinput_{kode} SEBELUM widget number_input dibuat,
+# dan TIDAK dikasih value= lagi di widgetnya (lihat penjelasan di bawah).
+for kode in produk_df["kode_voucher"]:
+    st.session_state.setdefault(f"qtyinput_{kode}", st.session_state.qty[kode])
 
 
 def tambah(kode):
@@ -1046,7 +938,6 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
         nama = row["produk"]
         harga = row["harga"]
         provider = row["provider"]
-        qty_sekarang = st.session_state.qty.get(kode, 0)
 
         with kolom[kolom_idx]:
             with st.container(border=True):
@@ -1063,6 +954,16 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                 # Angka pakai number_input (tetap bisa diketik manual),
                 # tombol +/- bawaan number_input disembunyikan via CSS,
                 # digantikan tombol custom di kiri-kanan.
+                #
+                # PENTING: TIDAK pakai parameter value=... di sini.
+                # Nilainya sepenuhnya dikendalikan lewat session_state
+                # (key="qtyinput_{kode}") yang sudah diinisialisasi di
+                # atas dan diupdate oleh tambah(), kurang(), dan
+                # set_qty_dari_input(). Kalau value= dan key= dipakai
+                # bareng, Streamlit akan melempar
+                # StreamlitAPIException "cannot be modified after the
+                # widget is instantiated" begitu tambah()/kurang()
+                # menulis ke session_state di run yang sama.
                 # ====================================================
                 qty_box = st.container(key=f"qtybox-{kode}")
                 with qty_box:
@@ -1088,7 +989,6 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                             "Jumlah",
                             min_value=0,
                             step=1,
-                            value=qty_sekarang,
                             key=f"qtyinput_{kode}",
                             on_change=set_qty_dari_input,
                             args=(kode,),
