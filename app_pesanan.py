@@ -54,6 +54,25 @@ st.html(
         min-width: 0 !important;
     }
 
+    /* Rapatkan jarak antar elemen di dalam kartu produk
+       (nama produk, provider/kode, harga, qty box) supaya
+       tidak makan tempat dan terlihat minimalis/formal. */
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.25rem !important;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    div[data-testid="element-container"] {
+        margin-bottom: 0 !important;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]
+    div[data-testid="stMarkdownContainer"] p {
+        margin-bottom: 0 !important;
+        line-height: 1.3 !important;
+    }
+
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
         width: 100% !important;
         min-width: 0 !important;
@@ -72,14 +91,6 @@ st.html(
         font-weight: 700 !important;
         line-height: 1 !important;
         margin: 0 !important;
-    }
-
-    .wg-qty-label {
-        font-size: 0.72rem;
-        color: rgba(49, 51, 63, 0.62);
-        text-align: center;
-        margin-top: 0.35rem;
-        margin-bottom: 0.1rem;
     }
 
     /* ========================================================
@@ -238,6 +249,11 @@ st.html(
 
         div[data-testid="stVerticalBlockBorderWrapper"] {
             padding: 0.65rem !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]
+        div[data-testid="stVerticalBlock"] {
+            gap: 0.2rem !important;
         }
     }
 
@@ -1082,11 +1098,6 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                             use_container_width=True,
                             help="Tambah jumlah",
                         )
-
-                st.markdown(
-                    '<div class="wg-qty-label">Jumlah</div>',
-                    unsafe_allow_html=True,
-                )
 
 st.divider()
 
