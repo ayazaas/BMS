@@ -1239,7 +1239,7 @@ if (
     and st.session_state.last_receipt
 ):
     st.success(
-        "✅ Pesanan tersimpan! "
+        "Pesanan tersimpan! "
         f"Order ID: **{st.session_state.last_order_id}**"
     )
 
