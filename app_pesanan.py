@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 import io
 import random
@@ -15,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK = "Produk"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
+ZONA_WAKTU = ZoneInfo("Asia/Jakarta")
 
 st.set_page_config(
     page_title="Form Pesanan Outlet",
@@ -846,7 +848,7 @@ def format_rupiah(n):
 
 
 def buat_order_id():
-    now = datetime.now()
+    now = datetime.now(ZONA_WAKTU)
     acak = random.randint(100, 999)
     return f"ORD-{now.strftime('%y%m%d-%H%M%S')}-{acak}"
 
@@ -1136,7 +1138,7 @@ def tandai_terkirim(ws_status, order_id):
         [
             order_id,
             "TRUE",
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.now(ZONA_WAKTU).strftime("%Y-%m-%d %H:%M:%S"),
         ],
         value_input_option="USER_ENTERED",
     )
@@ -1387,7 +1389,7 @@ if st.button(
         )
 
     else:
-        timestamp = datetime.now().strftime(
+        timestamp = datetime.now(ZONA_WAKTU).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         order_id = buat_order_id()
