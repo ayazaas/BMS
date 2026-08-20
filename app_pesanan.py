@@ -1490,5 +1490,358 @@ if (
             st.rerun()
 
 # ============================================================
+
 # PANEL ADMIN — SIDEBAR
 # ============================================================
+
+if "admin_fullscreen" not in st.session_state:
+    st.session_state.admin_fullscreen = False
+
+st.html(
+    f"""
+<script>
+document.body.classList.toggle(
+    "wg-admin-fullscreen",
+    {str(st.session_state.admin_fullscreen).lower()}
+);
+</script>
+""",
+    unsafe_allow_javascript=True,
+)
+
+with st.sidebar:
+    st.markdown("### Panel Admin")
+
+    if "admin_authed" not in st.session_state:
+        st.session_state.admin_authed = False
+
+    admin_password = os.environ.get("admin_password") or os.environ.get("ADMIN_PASSWORD")
+    admin_password_tersedia = bool(admin_password)
+
+    if not admin_password_tersedia:
+        st.warning(
+            "Panel admin belum aktif. Tambahkan `admin_password` "
+            "di secrets.toml untuk mengaktifkan fitur ini."
+        )
+
+    elif not st.session_state.admin_authed:
+        pw_input = st.text_input(
+            "Password Admin",
+            type="password",
+            key="admin_pw_input",
+        )
+
+        if st.button("Masuk", key="admin_login_btn"):
+            if pw_input == admin_password:
+                st.session_state.admin_authed = True
+                st.rerun()
+            else:
+                st.error("Password salah.")
+
+    else:
+        col_status, col_logout = st.columns([3, 1])
+
+        with col_status:
+            st.success("Masuk sebagai Admin.")
+
+        with col_logout:
+            if st.button(
+                "Keluar",
+                key="admin_logout_btn",
+            ):
+                st.session_state.admin_authed = False
+                st.rerun()
+
+        st.caption(
+            "Kirim nota dari HP/laptop yang nomor WhatsApp-nya "
+            "adalah nomor admin, agar nota terkirim dari nomor "
+            "admin — bukan dari HP outlet."
+        )
+
+        st.toggle(
+            "Mode layar penuh",
+            key="admin_fullscreen",
+            help="Perluas panel admin menjadi tampilan penuh.",
+        )
+
+        if st.session_state.admin_fullscreen:
+            st.caption("Panel admin sedang ditampilkan penuh.")
+
+        search_kw = st.text_input(
+            "Cari order ID / nama outlet",
+            key="admin_search",
+            placeholder="Contoh: ORD-260819 atau ABC Cell",
+        )
+
+        try:
+            semua_data = worksheet.get_all_records()
+        except Exception as e:
+            semua_data = []
+            st.error(
+                "Gagal mengambil data pesanan dari Google Sheets."
+            )
+            st.exception(e)
+
+        if not semua_data:
+            st.markdown(
+                '<div class="wg-admin-empty">'
+                "Belum ada pesanan masuk."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        else:
+            df_semua = pd.DataFrame(semua_data)
+
+            if "order_id" not in df_semua.columns:
+                st.warning(
+                    "Kolom `order_id` tidak ditemukan di sheet. "
+                    "Pastikan header sheet sudah sesuai."
+                )
+
+            else:
+                status_map = get_status_map(worksheet_status)
+
+                order_ids_unik = (
+                    df_semua[["order_id", "timestamp"]]
+                    .drop_duplicates(subset="order_id")
+                    .sort_values(
+                        "timestamp",
+                        ascending=False,
+                    )["order_id"]
+                    .tolist()
+                )
+
+                daftar_order = []
+
+                for oid in order_ids_unik:
+                    baris_order = df_semua[
+                        df_semua["order_id"] == oid
+                    ]
+
+                    first_row = baris_order.iloc[0]
+
+                    total_order = pd.to_numeric(
+                        baris_order["subtotal"],
+                        errors="coerce",
+                    ).sum()
+
+                    daftar_order.append(
+                        {
+                            "order_id": oid,
+                            "nama_outlet": first_row.get(
+                                "nama_outlet",
+                                "",
+                            ),
+                            "no_wa": first_row.get(
+                                "no_wa",
+                                "",
+                            ),
+                            "alamat_pengiriman": first_row.get(
+                                "alamat_pengiriman",
+                                "",
+                            ),
+                            "timestamp": first_row.get(
+                                "timestamp",
+                                "",
+                            ),
+                            "baris_order": baris_order,
+                            "total": total_order,
+                            "terkirim": status_map.get(
+                                str(oid),
+                                False,
+                            ),
+                        }
+                    )
+
+                if search_kw:
+                    kw = search_kw.strip().lower()
+
+                    daftar_order = [
+                        d
+                        for d in daftar_order
+                        if (
+                            kw in str(
+                                d["order_id"]
+                            ).lower()
+                            or
+                            kw in str(
+                                d["nama_outlet"]
+                            ).lower()
+                        )
+                    ]
+
+                belum_dikirim = [
+                    d
+                    for d in daftar_order
+                    if not d["terkirim"]
+                ]
+
+                sudah_dikirim = [
+                    d
+                    for d in daftar_order
+                    if d["terkirim"]
+                ]
+
+                JUMLAH_TAMPIL = 20
+
+                def render_kartu_order(d, sudah):
+                    items_order = [
+                        {
+                            "produk": r["produk"],
+                            "kode_voucher": r["kode_voucher"],
+                            "qty": r["qty"],
+                            "harga_satuan": r["harga_satuan"],
+                            "subtotal": r["subtotal"],
+                        }
+                        for _, r in d["baris_order"].iterrows()
+                    ]
+
+                    teks_nota_admin = build_nota_wa_text(
+                        d["order_id"],
+                        d["nama_outlet"],
+                        d["no_wa"],
+                        d["alamat_pengiriman"],
+                        d["timestamp"],
+                        items_order,
+                        d["total"],
+                    )
+
+                    nomor_tujuan = format_no_wa(
+                        str(d["no_wa"])
+                    )
+
+                    link_wa_admin = (
+                        "https://api.whatsapp.com/send"
+                        f"?phone={nomor_tujuan}"
+                        f"&text={quote(teks_nota_admin)}"
+                    )
+
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**{d['order_id']}** — "
+                            f"{d['nama_outlet']}"
+                        )
+
+                        st.markdown(
+                            '<div class="wg-admin-card-total">'
+                            f"{d['timestamp']} · "
+                            f"{format_rupiah(d['total'])} · "
+                            f"{len(d['baris_order'])} item"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                        # ====================================================
+                        # ACTION BUTTONS
+                        # Kedua tombol dibungkus bersama agar tinggi sama.
+                        # ====================================================
+                        st.markdown(
+                            '<div class="wg-admin-actions">',
+                            unsafe_allow_html=True,
+                        )
+
+                        c1, c2 = st.columns(
+                            2,
+                            gap="small",
+                        )
+
+                        with c1:
+                            st.link_button(
+                                "Kirim WhatsApp",
+                                link_wa_admin,
+                                use_container_width=True,
+                            )
+
+                        with c2:
+                            if not sudah:
+                                if st.button(
+                                    "Tandai terkirim",
+                                    key=(
+                                        f"tandai_"
+                                        f"{d['order_id']}"
+                                    ),
+                                    use_container_width=True,
+                                ):
+                                    tandai_terkirim(
+                                        worksheet_status,
+                                        d["order_id"],
+                                    )
+                                    st.rerun()
+
+                            else:
+                                if st.button(
+                                    "Batalkan tandai",
+                                    key=(
+                                        f"batal_"
+                                        f"{d['order_id']}"
+                                    ),
+                                    use_container_width=True,
+                                ):
+                                    batalkan_tandai(
+                                        worksheet_status,
+                                        d["order_id"],
+                                    )
+                                    st.rerun()
+
+                        st.markdown(
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                with st.expander(
+                    f"Belum dikirim ({len(belum_dikirim)})",
+                    expanded=True,
+                ):
+                    if not belum_dikirim:
+                        st.markdown(
+                            '<div class="wg-admin-empty">'
+                            "Tidak ada pesanan yang belum dikirim."
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        for d in belum_dikirim[:JUMLAH_TAMPIL]:
+                            render_kartu_order(
+                                d,
+                                sudah=False,
+                            )
+
+                st.divider()
+
+                with st.expander(
+                    f"Sudah dikirim ({len(sudah_dikirim)})",
+                    expanded=False,
+                ):
+                    if not sudah_dikirim:
+                        st.markdown(
+                            '<div class="wg-admin-empty">'
+                            "Belum ada yang ditandai terkirim."
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        for d in sudah_dikirim[:JUMLAH_TAMPIL]:
+                            render_kartu_order(
+                                d,
+                                sudah=True,
+                            )
+
+                st.divider()
+                st.markdown("#### Rekapitulasi")
+
+                total_pesanan_semua = len(daftar_order)
+                total_nilai_semua = sum(
+                    d["total"] for d in daftar_order
+                )
+
+                rc1, rc2 = st.columns(2)
+                rc1.metric("Total Pesanan", total_pesanan_semua)
+                rc2.metric("Sudah Terkirim", len(sudah_dikirim))
+
+                rc3, rc4 = st.columns(2)
+                rc3.metric("Belum Terkirim", len(belum_dikirim))
+                rc4.metric(
+                    "Total Nilai",
+                    format_rupiah(total_nilai_semua),
+                )
