@@ -1512,15 +1512,17 @@ with st.sidebar:
     if "admin_authed" not in st.session_state:
         st.session_state.admin_authed = False
 
-    admin_password_tersedia = "admin_password" in st.secrets
+    admin_password_tersedia = bool(
+    os.environ.get("admin_password")
+)
 
-    if not admin_password_tersedia:
-        st.warning(
-            "Panel admin belum aktif. Tambahkan `admin_password` "
-            "di secrets.toml untuk mengaktifkan fitur ini."
-        )
+if not admin_password_tersedia:
+    st.warning(
+        "Panel admin belum aktif. Tambahkan `admin_password` "
+        "di Railway Variables untuk mengaktifkan fitur ini."
+    )
 
-    elif not st.session_state.admin_authed:
+elif not st.session_state.admin_authed:
         pw_input = st.text_input(
             "Password Admin",
             type="password",
