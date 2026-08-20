@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from urllib.parse import quote
 import io
 import random
@@ -16,7 +15,6 @@ from PIL import Image, ImageDraw, ImageFont
 NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK = "Produk"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
-ZONA_WAKTU = ZoneInfo("Asia/Jakarta")
 
 st.set_page_config(
     page_title="Form Pesanan Outlet",
@@ -80,15 +78,15 @@ div[data-testid="stVerticalBlockBorderWrapper"]
 }
 
 /* ========================================================
-    QTY BOX: - | ANGKA | +
-    Target langsung via key agar tidak bergantung pada posisi DOM.
-    ======================================================== */
+   QTY BOX: - | ANGKA | +
+   Target langsung via key (bukan posisi/nth-child) supaya
+   tidak rapuh terhadap elemen tambahan di DOM.
+   ======================================================== */
 div[class*="st-key-qtybox-"] {
     margin-top: 0.4rem !important;
 }
 
-div[class*="st-key-qtybox-"]
-div[data-testid="stHorizontalBlock"] {
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
     display: flex !important;
     align-items: stretch !important;
     gap: 0 !important;
@@ -98,11 +96,11 @@ div[data-testid="stHorizontalBlock"] {
     background: rgba(250, 250, 250, 0.8) !important;
 }
 
-div[class*="st-key-qtybox-"]
-div[data-testid="stHorizontalBlock"] > div {
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
     min-width: 0 !important;
 }
 
+/* Tombol MINUS & PLUS ditembak langsung lewat key-nya sendiri */
 div[class*="st-key-qty_minus_"],
 div[class*="st-key-qty_plus_"] {
     width: 100% !important;
@@ -111,7 +109,6 @@ div[class*="st-key-qty_plus_"] {
 div[class*="st-key-qty_minus_"] button,
 div[class*="st-key-qty_plus_"] button {
     width: 100% !important;
-    min-width: 0 !important;
     height: 40px !important;
     min-height: 40px !important;
     max-height: 40px !important;
@@ -133,7 +130,7 @@ div[class*="st-key-qty_plus_"] button {
 
 div[class*="st-key-qty_minus_"] button *,
 div[class*="st-key-qty_plus_"] button * {
-    color: #30323d !important;
+    color: inherit !important;
     opacity: 1 !important;
     visibility: visible !important;
     font-size: 21px !important;
@@ -152,6 +149,7 @@ div[class*="st-key-qty_plus_"] button:active {
     background: rgba(0, 0, 0, 0.08) !important;
 }
 
+/* Garis pemisah pil: minus di kiri, plus di kanan */
 div[class*="st-key-qty_minus_"] {
     border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
 }
@@ -160,18 +158,7 @@ div[class*="st-key-qty_plus_"] {
     border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
 }
 
-div[class*="st-key-qty_minus_"] button p,
-div[class*="st-key-qty_minus_"] button div,
-div[class*="st-key-qty_plus_"] button p,
-div[class*="st-key-qty_plus_"] button div {
-    color: #30323d !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    font-size: 21px !important;
-    font-weight: 700 !important;
-    line-height: 1 !important;
-}
-
+/* Input angka di tengah — tetap bisa diketik manual */
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
     width: 100% !important;
     background: transparent !important;
@@ -199,16 +186,6 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
 
 div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
     display: none !important;
-}
-
-div[class*="st-key-qtybox-"] .stButton > button:hover {
-    background: rgba(0, 0, 0, 0.04) !important;
-    color: #111 !important;
-}
-
-div[class*="st-key-qtybox-"] .stButton > button:active {
-    background: rgba(0, 0, 0, 0.08) !important;
-    transform: none !important;
 }
 
 /* ========================================================
@@ -386,7 +363,8 @@ body.wg-admin-fullscreen .main {
     }
 
     div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input,
-    div[class*="st-key-qtybox-"] .stButton > button {
+    div[class*="st-key-qty_minus_"] button,
+    div[class*="st-key-qty_plus_"] button {
         height: 42px !important;
         min-height: 42px !important;
         max-height: 42px !important;
@@ -771,34 +749,7 @@ if produk_df.empty:
     st.stop()
 
 # ============================================================
-# SESSION STATE
-# ============================================================
-
-if "qty" not in st.session_state:
-    st.session_state.qty = {
-        kode: 0 for kode in produk_df["kode_voucher"]
-    }
-else:
-    for kode in produk_df["kode_voucher"]:
-        st.session_state.qty.setdefault(kode, 0)
-
-if "last_receipt" not in st.session_state:
-    st.session_state.last_receipt = None
-
-if "last_receipt_name" not in st.session_state:
-    st.session_state.last_receipt_name = None
-
-if "show_success" not in st.session_state:
-    st.session_state.show_success = False
-
-if "last_wa_link" not in st.session_state:
-    st.session_state.last_wa_link = None
-
-if "last_order_id" not in st.session_state:
-    st.session_state.last_order_id = None
-
-# ============================================================
-# QUANTITY STATE
+# SESSION STATE / QUANTITY STATE
 # ============================================================
 # Hanya satu sumber data: st.session_state.qty.
 # Tidak ada state dengan key qtyinput_*, sehingga tidak mungkin terjadi
@@ -848,7 +799,7 @@ def format_rupiah(n):
 
 
 def buat_order_id():
-    now = datetime.now(ZONA_WAKTU)
+    now = datetime.now()
     acak = random.randint(100, 999)
     return f"ORD-{now.strftime('%y%m%d-%H%M%S')}-{acak}"
 
@@ -897,7 +848,6 @@ def build_nota_wa_text(
 
     for idx, item in enumerate(detail_pesanan, start=1):
         baris.append(f"{idx}. {item['produk']}")
-        baris.append(f"   Kode     : {item['kode_voucher']}")
         baris.append(f"   Qty      : {item['qty']}")
         baris.append(
             f"   Harga    : {format_rupiah(item['harga_satuan'])}"
@@ -944,8 +894,7 @@ def build_receipt_lines(
         lines.append(
             (
                 "item",
-                f"[{item['provider']}] "
-                f"{item['produk']} ({item['kode_voucher']})",
+                f"[{item['provider']}] {item['produk']}",
             )
         )
         lines.append(
@@ -1138,7 +1087,7 @@ def tandai_terkirim(ws_status, order_id):
         [
             order_id,
             "TRUE",
-            datetime.now(ZONA_WAKTU).strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         ],
         value_input_option="USER_ENTERED",
     )
@@ -1286,7 +1235,7 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
         with kolom[kolom_idx]:
             with st.container(border=True):
                 st.markdown(f"**{nama}**")
-                st.caption(f"{provider} · {kode}")
+                st.caption(f"{provider}")
 
                 if harga > 0:
                     st.markdown(f"**{format_rupiah(harga)}**")
@@ -1303,15 +1252,15 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     )
 
                     with c_minus:
-                        with st.container(key=f"qty_minus_{kode}"):
-                            st.button(
-                                "−",
-                                key=f"qty_minus_{kode}_btn",
-                                on_click=kurang,
-                                args=(kode,),
-                                disabled=(harga == 0),
-                                use_container_width=True,
-                            )
+                        st.container(key=f"qty_minus_{kode}")
+                        st.button(
+                            "−",
+                            key=f"qty_minus_{kode}_btn",
+                            on_click=kurang,
+                            args=(kode,),
+                            disabled=(harga == 0),
+                            use_container_width=True,
+                        )
 
                     with c_qty:
                         # Widget input TIDAK memakai key Session State.
@@ -1332,15 +1281,15 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                             st.session_state.qty[kode] = nilai_ketik
 
                     with c_plus:
-                        with st.container(key=f"qty_plus_{kode}"):
-                            st.button(
-                                "+",
-                                key=f"qty_plus_{kode}_btn",
-                                on_click=tambah,
-                                args=(kode,),
-                                disabled=(harga == 0),
-                                use_container_width=True,
-                            )
+                        st.container(key=f"qty_plus_{kode}")
+                        st.button(
+                            "+",
+                            key=f"qty_plus_{kode}_btn",
+                            on_click=tambah,
+                            args=(kode,),
+                            disabled=(harga == 0),
+                            use_container_width=True,
+                        )
 
 st.divider()
 
@@ -1355,7 +1304,9 @@ if detail_pesanan:
         expanded=True,
     ):
         st.dataframe(
-            pd.DataFrame(detail_pesanan),
+            pd.DataFrame(detail_pesanan).drop(
+                columns=["provider", "kode_voucher"]
+            ),
             use_container_width=True,
             hide_index=True,
         )
@@ -1389,7 +1340,7 @@ if st.button(
         )
 
     else:
-        timestamp = datetime.now(ZONA_WAKTU).strftime(
+        timestamp = datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         order_id = buat_order_id()
@@ -1567,7 +1518,7 @@ with st.sidebar:
         st.caption(
             "Kirim nota dari HP/laptop yang nomor WhatsApp-nya "
             "adalah nomor admin, agar nota terkirim dari nomor "
-            "admin."
+            "admin — bukan dari HP outlet."
         )
 
         st.toggle(
@@ -1838,3 +1789,22 @@ with st.sidebar:
                                 d,
                                 sudah=True,
                             )
+
+                st.divider()
+                st.markdown("#### Rekapitulasi")
+
+                total_pesanan_semua = len(daftar_order)
+                total_nilai_semua = sum(
+                    d["total"] for d in daftar_order
+                )
+
+                rc1, rc2 = st.columns(2)
+                rc1.metric("Total Pesanan", total_pesanan_semua)
+                rc2.metric("Sudah Terkirim", len(sudah_dikirim))
+
+                rc3, rc4 = st.columns(2)
+                rc3.metric("Belum Terkirim", len(belum_dikirim))
+                rc4.metric(
+                    "Total Nilai",
+                    format_rupiah(total_nilai_semua),
+                )
