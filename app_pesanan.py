@@ -1530,7 +1530,7 @@ elif not st.session_state.admin_authed:
         )
 
         if st.button("Masuk", key="admin_login_btn"):
-            if pw_input == st.secrets["admin_password"]:
+            if pw_input == os.environ["admin_password"]:
                 st.session_state.admin_authed = True
                 st.rerun()
             else:
