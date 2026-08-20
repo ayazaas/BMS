@@ -42,7 +42,7 @@ st.html(
    ======================================================== */
 div[data-testid="stVerticalBlockBorderWrapper"] {
     border-radius: 14px !important;
-    padding: 0.75rem !important;
+    padding: 0.6rem !important;
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"]
@@ -59,7 +59,7 @@ div[data-testid="stHorizontalBlock"] > div {
 
 div[data-testid="stVerticalBlockBorderWrapper"]
 div[data-testid="stVerticalBlock"] {
-    gap: 0.05rem !important;
+    gap: 0.01rem !important;
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"]
@@ -74,7 +74,7 @@ div[data-testid="stVerticalBlockBorderWrapper"]
 [data-testid="stCaptionContainer"] p {
     margin: 0 !important;
     padding: 0 !important;
-    line-height: 1.25 !important;
+    line-height: 1.1 !important;
 }
 
 /* ========================================================
@@ -83,7 +83,7 @@ div[data-testid="stVerticalBlockBorderWrapper"]
    tidak rapuh terhadap elemen tambahan di DOM.
    ======================================================== */
 div[class*="st-key-qtybox-"] {
-    margin-top: 0.4rem !important;
+    margin-top: 0.25rem !important;
 }
 
 div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
@@ -371,7 +371,7 @@ body.wg-admin-fullscreen .main {
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 0.65rem !important;
+        padding: 0.6rem !important;
     }
 }
 
@@ -952,8 +952,8 @@ def build_receipt_image(
     )
 
     width = 480
-    padding = 24
-    line_height = 26
+    padding = 20
+    line_height = 22
 
     font_normal = _load_font(16)
     font_title = _load_font(20, bold=True)
@@ -961,11 +961,11 @@ def build_receipt_image(
 
     height = padding * 2 + sum(
         (
-            34
+            28
             if tipe == "title"
-            else 14
+            else 10
             if tipe == "sep"
-            else 24
+            else 20
             if tipe == "total"
             else line_height
         )
@@ -980,13 +980,13 @@ def build_receipt_image(
         if tipe == "sep":
             draw.line(
                 [
-                    (padding, y + 6),
-                    (width - padding, y + 6),
+                    (padding, y + 5),
+                    (width - padding, y + 5),
                 ],
                 fill=(180, 180, 180),
                 width=1,
             )
-            y += 14
+            y += 10
 
         elif tipe == "title":
             bbox = draw.textbbox(
@@ -1001,7 +1001,7 @@ def build_receipt_image(
                 fill="black",
                 font=font_title,
             )
-            y += 34
+            y += 28
 
         elif tipe == "total":
             bbox = draw.textbbox(
@@ -1016,7 +1016,7 @@ def build_receipt_image(
                 fill="black",
                 font=font_total,
             )
-            y += 24
+            y += 20
 
         elif tipe == "footer":
             bbox = draw.textbbox(
@@ -1303,10 +1303,21 @@ if detail_pesanan:
         f"({len(detail_pesanan)} item dipilih)",
         expanded=True,
     ):
+        df_ringkasan = pd.DataFrame(detail_pesanan).drop(
+            columns=["provider", "kode_voucher"]
+        )
+        # Ubah kolom angka jadi teks berformat supaya st.dataframe
+        # merender rata kiri (kolom numerik otomatis rata kanan).
+        df_ringkasan["harga_satuan"] = df_ringkasan["harga_satuan"].apply(
+            format_rupiah
+        )
+        df_ringkasan["qty"] = df_ringkasan["qty"].astype(str)
+        df_ringkasan["subtotal"] = df_ringkasan["subtotal"].apply(
+            format_rupiah
+        )
+
         st.dataframe(
-            pd.DataFrame(detail_pesanan).drop(
-                columns=["provider", "kode_voucher"]
-            ),
+            df_ringkasan,
             use_container_width=True,
             hide_index=True,
         )
