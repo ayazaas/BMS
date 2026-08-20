@@ -681,25 +681,43 @@ def connect_sheet():
         "https://www.googleapis.com/auth/drive",
     ]
 
+    # ========================================================
+    # AMBIL GOOGLE SERVICE ACCOUNT DARI RAILWAY VARIABLES
+    # ========================================================
+    gcp_service_account = json.loads(
+        os.environ["gcp_service_account"]
+    )
+
+    spreadsheet_url = os.environ["spreadsheet_url"]
+
+    # ========================================================
+    # BUAT CREDENTIALS
+    # ========================================================
     creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
+        gcp_service_account,
         scopes=scopes,
     )
 
     client = gspread.authorize(creds)
-    spreadsheet = client.open_by_url(st.secrets["spreadsheet_url"])
 
+    spreadsheet = client.open_by_url(spreadsheet_url)
+
+    # ========================================================
+    # WORKSHEET
+    # ========================================================
     ws_pesanan = spreadsheet.worksheet(NAMA_WORKSHEET_PESANAN)
     ws_produk = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK)
 
     try:
         ws_status = spreadsheet.worksheet(NAMA_WORKSHEET_STATUS)
+
     except gspread.exceptions.WorksheetNotFound:
         ws_status = spreadsheet.add_worksheet(
             title=NAMA_WORKSHEET_STATUS,
             rows=1000,
             cols=3,
         )
+
         ws_status.append_row(
             ["order_id", "status_kirim", "waktu_ditandai"],
             value_input_option="USER_ENTERED",
@@ -711,13 +729,17 @@ def connect_sheet():
 try:
     worksheet, worksheet_produk, worksheet_status = connect_sheet()
     sheet_ok = True
+
 except Exception as e:
     sheet_ok = False
+
     st.error(
-        "Gagal konek ke Google Sheets. Cek konfigurasi secrets "
-        "(gcp_service_account, spreadsheet_url) dan pastikan sheet "
-        "sudah di-share ke email service account."
+        "Gagal konek ke Google Sheets. Cek konfigurasi "
+        "gcp_service_account dan spreadsheet_url, serta "
+        "pastikan Google Sheet sudah di-share ke email "
+        "service account."
     )
+
     st.exception(e)
     st.stop()
 
