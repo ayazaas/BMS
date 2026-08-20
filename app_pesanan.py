@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 import io
 import random
@@ -17,6 +18,17 @@ from PIL import Image, ImageDraw, ImageFont
 NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK = "Produk"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
+
+# Zona waktu WIB (Waktu Indonesia Barat, UTC+7).
+# Dipakai untuk SEMUA timestamp di aplikasi ini supaya tidak
+# tergantung timezone server (mis. Railway biasanya UTC).
+WIB = ZoneInfo("Asia/Jakarta")
+
+
+def now_wib():
+    """Waktu sekarang di zona WIB (real-time, bukan waktu server)."""
+    return datetime.now(WIB)
+
 
 st.set_page_config(
     page_title="Form Pesanan Outlet",
@@ -823,7 +835,7 @@ def format_rupiah(n):
 
 
 def buat_order_id():
-    now = datetime.now()
+    now = now_wib()
     acak = random.randint(100, 999)
     return f"ORD-{now.strftime('%y%m%d-%H%M%S')}-{acak}"
 
@@ -1111,7 +1123,7 @@ def tandai_terkirim(ws_status, order_id):
         [
             order_id,
             "TRUE",
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            now_wib().strftime("%Y-%m-%d %H:%M:%S"),
         ],
         value_input_option="USER_ENTERED",
     )
@@ -1375,7 +1387,7 @@ if st.button(
         )
 
     else:
-        timestamp = datetime.now().strftime(
+        timestamp = now_wib().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         order_id = buat_order_id()
