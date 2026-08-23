@@ -205,12 +205,13 @@ div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
 /* ========================================================
    PAGINATION PRODUK
    Dipaksa tetap satu baris (tidak stack) di layar sempit/HP,
-   dengan lebar kiri-kanan simetris.
+   dengan lebar kiri-kanan simetris. Tombol nomor halaman
+   memakai ukuran seragam & kompak.
    ======================================================== */
 div[class*="st-key-wg-pagination"] div[data-testid="stHorizontalBlock"] {
     flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.4rem !important;
+    gap: 0.25rem !important;
 }
 
 div[class*="st-key-wg-pagination"] div[data-testid="stHorizontalBlock"] > div {
@@ -219,29 +220,33 @@ div[class*="st-key-wg-pagination"] div[data-testid="stHorizontalBlock"] > div {
 
 div[class*="st-key-wg-pagination"] .stButton > button {
     width: 100% !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    max-height: 36px !important;
-    padding: 0 0.35rem !important;
-    font-size: 0.8rem !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    min-width: 0 !important;
+    padding: 0 0.2rem !important;
+    font-size: 0.78rem !important;
     white-space: nowrap !important;
 }
 
-div[class*="st-key-wg-pagination"] .wg-pagination-label {
-    text-align: center !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    white-space: nowrap !important;
+div[class*="st-key-wg-pagination"] .wg-pagination-ellipsis {
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.8rem !important;
+    color: rgba(49, 51, 63, 0.45) !important;
+    letter-spacing: 1px;
 }
 
 @media (max-width: 480px) {
     div[class*="st-key-wg-pagination"] .stButton > button {
-        font-size: 0.72rem !important;
-        padding: 0 0.15rem !important;
+        font-size: 0.7rem !important;
+        padding: 0 0.1rem !important;
     }
 
-    div[class*="st-key-wg-pagination"] .wg-pagination-label {
-        font-size: 0.74rem !important;
+    div[class*="st-key-wg-pagination"] .wg-pagination-ellipsis {
+        font-size: 0.75rem !important;
     }
 }
 
@@ -1038,19 +1043,62 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
 # KONTROL PAGINATION (Sebelumnya / Nomor Halaman / Selanjutnya)
 # ============================================================
 
+def _daftar_nomor_halaman(halaman_aktif, total):
+    """
+    Bangun daftar nomor halaman yang ditampilkan, dengan '...'
+    (direpresentasikan None) untuk halaman yang di-skip.
+    Contoh (halaman 6 dari 13): 1 ... 5 6 7 ... 13
+    """
+    if total <= 7:
+        return list(range(1, total + 1))
+
+    nomor = {1, total, halaman_aktif}
+
+    if halaman_aktif - 1 >= 1:
+        nomor.add(halaman_aktif - 1)
+    if halaman_aktif + 1 <= total:
+        nomor.add(halaman_aktif + 1)
+
+    nomor_urut = sorted(nomor)
+
+    hasil = []
+    sebelumnya = None
+
+    for n in nomor_urut:
+        if sebelumnya is not None and n - sebelumnya > 1:
+            hasil.append(None)
+        hasil.append(n)
+        sebelumnya = n
+
+    return hasil
+
+
 if total_halaman > 1:
     pagination_box = st.container(key="wg-pagination")
 
     with pagination_box:
-        col_prev, col_mid, col_next = st.columns(
-            [1, 1.3, 1],
+        daftar_nomor = _daftar_nomor_halaman(halaman_sekarang, total_halaman)
+
+        # Rasio kolom: panah lebih lebar dikit, nomor sama rata,
+        # elipsis lebih sempit.
+        rasio_kolom = [1.2]
+        for n in daftar_nomor:
+            rasio_kolom.append(1 if n is not None else 0.5)
+        rasio_kolom.append(1.2)
+
+        kolom_pagination = st.columns(
+            rasio_kolom,
             gap="small",
             vertical_alignment="center",
         )
 
+        col_prev = kolom_pagination[0]
+        col_next = kolom_pagination[-1]
+        kolom_nomor = kolom_pagination[1:-1]
+
         with col_prev:
             if st.button(
-                "◀ Sebelumnya",
+                "◀",
                 use_container_width=True,
                 disabled=(halaman_sekarang <= 1),
                 key="btn_halaman_prev",
@@ -1058,16 +1106,30 @@ if total_halaman > 1:
                 st.session_state["halaman_produk"] = halaman_sekarang - 1
                 st.rerun()
 
-        with col_mid:
-            st.markdown(
-                f"<div class='wg-pagination-label'>"
-                f"Hal. {halaman_sekarang}/{total_halaman}</div>",
-                unsafe_allow_html=True,
-            )
+        for kolom, nomor in zip(kolom_nomor, daftar_nomor):
+            with kolom:
+                if nomor is None:
+                    st.markdown(
+                        "<div class='wg-pagination-ellipsis'>···</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    if st.button(
+                        str(nomor),
+                        use_container_width=True,
+                        key=f"btn_halaman_{nomor}",
+                        type=(
+                            "primary"
+                            if nomor == halaman_sekarang
+                            else "secondary"
+                        ),
+                    ):
+                        st.session_state["halaman_produk"] = nomor
+                        st.rerun()
 
         with col_next:
             if st.button(
-                "Selanjutnya ▶",
+                "▶",
                 use_container_width=True,
                 disabled=(halaman_sekarang >= total_halaman),
                 key="btn_halaman_next",
