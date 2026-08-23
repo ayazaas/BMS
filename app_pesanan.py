@@ -1220,8 +1220,38 @@ if keyword:
         .str.contains(kw, na=False)
     ]
 
+# ============================================================
+# PAGINATION PRODUK (10 produk / halaman)
+# ============================================================
+
+ITEMS_PER_PAGE = 10
+
+total_produk_filter = len(produk_tampil)
+total_halaman = max(1, -(-total_produk_filter // ITEMS_PER_PAGE))  # ceil division
+
+# Reset ke halaman 1 setiap kali filter provider / keyword berubah
+filter_key = f"{provider_terpilih}|{keyword}"
+if st.session_state.get("_last_filter_key") != filter_key:
+    st.session_state["_last_filter_key"] = filter_key
+    st.session_state["halaman_produk"] = 1
+
+if "halaman_produk" not in st.session_state:
+    st.session_state["halaman_produk"] = 1
+
+# Jaga-jaga kalau halaman_produk kebesaran (misal filter berubah jadi lebih sedikit)
+halaman_sekarang = min(st.session_state["halaman_produk"], total_halaman)
+st.session_state["halaman_produk"] = halaman_sekarang
+
+start_idx = (halaman_sekarang - 1) * ITEMS_PER_PAGE
+end_idx = start_idx + ITEMS_PER_PAGE
+produk_tampil_halaman = produk_tampil.iloc[start_idx:end_idx]
+
+awal_tampil = start_idx + 1 if total_produk_filter > 0 else 0
+akhir_tampil = min(end_idx, total_produk_filter)
+
 st.caption(
-    f"Menampilkan {len(produk_tampil)} dari {len(produk_df)} produk"
+    f"Menampilkan {awal_tampil}-{akhir_tampil} dari {total_produk_filter} produk "
+    f"(Halaman {halaman_sekarang} dari {total_halaman})"
 )
 
 # ============================================================
@@ -1254,7 +1284,7 @@ for _, row in produk_df.iterrows():
 # DAFTAR PRODUK
 # ============================================================
 
-produk_list = produk_tampil.to_dict("records")
+produk_list = produk_tampil_halaman.to_dict("records")
 JUMLAH_KOLOM = 3
 
 for i in range(0, len(produk_list), JUMLAH_KOLOM):
@@ -1326,6 +1356,40 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                             disabled=(harga == 0),
                             use_container_width=True,
                         )
+
+# ============================================================
+# KONTROL PAGINATION (Sebelumnya / Nomor Halaman / Selanjutnya)
+# ============================================================
+
+if total_halaman > 1:
+    col_prev, col_mid, col_next = st.columns([1, 2, 1])
+
+    with col_prev:
+        if st.button(
+            "◀ Sebelumnya",
+            use_container_width=True,
+            disabled=(halaman_sekarang <= 1),
+            key="btn_halaman_prev",
+        ):
+            st.session_state["halaman_produk"] = halaman_sekarang - 1
+            st.rerun()
+
+    with col_mid:
+        st.markdown(
+            f"<div style='text-align:center; padding-top:0.45rem; "
+            f"font-weight:600;'>Halaman {halaman_sekarang} dari {total_halaman}</div>",
+            unsafe_allow_html=True,
+        )
+
+    with col_next:
+        if st.button(
+            "Selanjutnya ▶",
+            use_container_width=True,
+            disabled=(halaman_sekarang >= total_halaman),
+            key="btn_halaman_next",
+        ):
+            st.session_state["halaman_produk"] = halaman_sekarang + 1
+            st.rerun()
 
 st.divider()
 
