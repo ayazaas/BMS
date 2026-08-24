@@ -603,8 +603,8 @@ def build_konfirmasi_cs_text(
     garis = "━" * 20
 
     baris = [
-        "Halo Admin/CS Toko WG,",
-        "Saya ingin konfirmasi pesanan yang baru saja saya buat:",
+        "Halo Admin Toko WG,",
+        "Saya ingin melakukan konfirmasi terkait pesanan yang baru saja saya buat:",
         "",
         "*KONFIRMASI PESANAN OUTLET*",
         f"Order ID : {order_id}",
@@ -633,7 +633,10 @@ def build_konfirmasi_cs_text(
     baris.append("*TOTAL PESANAN*")
     baris.append(format_rupiah(total_harga))
     baris.append("")
-    baris.append("Mohon dikonfirmasi dan diproses ya. Terima kasih 🙏")
+    baris.append(
+        "Mohon konfirmasi dan tindak lanjut atas pesanan tersebut. "
+        "Terima kasih atas perhatian dan bantuannya."
+    )
 
     return "\n".join(baris)
 
@@ -1366,7 +1369,7 @@ if (
 
     if st.session_state.last_cs_wa_link:
         st.link_button(
-            "💬 Konfirmasi ke CS via WhatsApp",
+            "Konfirmasi melalui Admin via WhatsApp",
             st.session_state.last_cs_wa_link,
             use_container_width=True,
         )
