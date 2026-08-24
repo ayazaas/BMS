@@ -109,11 +109,10 @@ header[data-testid="stHeader"] {
 
 @media (max-width: 600px) {
     .block-container {
-        padding-top: 3.4rem !important;
+        padding-top: 3.6rem !important;
     }
 
     .block-container h1 {
-        font-size: 1.45rem !important;
         line-height: 1.4 !important;
     }
 }
