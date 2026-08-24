@@ -24,10 +24,42 @@ NAMA_WORKSHEET_STATUS = "StatusKirim"
 # tergantung timezone server (mis. Railway biasanya UTC).
 WIB = ZoneInfo("Asia/Jakarta")
 
+BULAN_ID = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+]
+
 
 def now_wib():
     """Waktu sekarang di zona WIB (real-time, bukan waktu server)."""
     return datetime.now(WIB)
+
+
+def format_tanggal_wa(dt):
+    """
+    Format tanggal untuk template chat WhatsApp (nota pesanan &
+    konfirmasi ke admin). Dipusatkan di satu fungsi supaya kedua
+    template SELALU memakai format tanggal yang sama persis.
+    Contoh hasil: "24 Agustus 2026, 14:30 WIB"
+    """
+    return (
+        f"{dt.day} {BULAN_ID[dt.month - 1]} {dt.year}, "
+        f"{dt.strftime('%H:%M')} WIB"
+    )
+
+
+def format_tanggal_wa_dari_string(teks_timestamp):
+    """
+    Versi format_tanggal_wa() untuk timestamp yang sudah tersimpan
+    sebagai string di Google Sheets (format "%Y-%m-%d %H:%M:%S").
+    Dipakai di Panel Admin. Kalau gagal parse, kembalikan teks asli
+    supaya tidak error.
+    """
+    try:
+        dt = datetime.strptime(str(teks_timestamp).strip(), "%Y-%m-%d %H:%M:%S")
+        return format_tanggal_wa(dt)
+    except (TypeError, ValueError):
+        return str(teks_timestamp)
 
 
 st.set_page_config(
@@ -49,6 +81,41 @@ st.html(
 .block-container {
     padding-top: clamp(1rem, 3vw, 2.5rem) !important;
     padding-bottom: 5rem !important;
+}
+
+/* ========================================================
+   HEADER / JUDUL — supaya judul & ikon tidak terpotong di HP
+   Header Streamlit (hamburger menu, dsb) posisinya fixed/overlay
+   di atas konten. Di layar sempit, padding-top bawaan tidak
+   cukup untuk membuat judul turun di bawah header tersebut,
+   sehingga bagian atas huruf/ikon judul terpotong.
+   ======================================================== */
+header[data-testid="stHeader"] {
+    height: 2.75rem !important;
+    background: transparent !important;
+}
+
+.block-container h1 {
+    overflow: visible !important;
+    line-height: 1.35 !important;
+    word-break: break-word !important;
+    margin-top: 0 !important;
+}
+
+.block-container h1 > div,
+.block-container h1 span {
+    overflow: visible !important;
+}
+
+@media (max-width: 600px) {
+    .block-container {
+        padding-top: 3.4rem !important;
+    }
+
+    .block-container h1 {
+        font-size: 1.45rem !important;
+        line-height: 1.4 !important;
+    }
 }
 
 /* ========================================================
@@ -579,7 +646,10 @@ def build_nota_wa_text(
     baris.append(garis)
     baris.append("*TOTAL PESANAN*")
     baris.append(format_rupiah(total_harga))
-    baris.append("Mohon diperiksa kembali detail pesanan tersebut.")
+    baris.append("")
+    baris.append(
+        "Mohon diperiksa kembali detail pesanan tersebut."
+    )
     baris.append(
         "Terima kasih atas kepercayaan Anda kepada Toko WG."
     )
@@ -1253,9 +1323,14 @@ if st.button(
         )
 
     else:
-        timestamp = now_wib().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        waktu_sekarang = now_wib()
+        # Untuk disimpan ke Google Sheets (format baku, mudah diolah)
+        timestamp = waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S")
+        # Untuk ditampilkan di template chat WA (nota & konfirmasi admin)
+        # — dipusatkan lewat format_tanggal_wa() supaya kedua template
+        # selalu memakai format tanggal yang identik.
+        timestamp_wa = format_tanggal_wa(waktu_sekarang)
+
         order_id = buat_order_id()
 
         rows_to_append = [
@@ -1307,7 +1382,7 @@ if st.button(
                 nama_outlet,
                 no_wa,
                 alamat_pengiriman,
-                timestamp,
+                timestamp_wa,
                 detail_pesanan,
                 total_harga,
             )
@@ -1328,7 +1403,7 @@ if st.button(
                     nama_outlet,
                     no_wa,
                     alamat_pengiriman,
-                    timestamp,
+                    timestamp_wa,
                     detail_pesanan,
                     total_harga,
                 )
@@ -1369,7 +1444,7 @@ if (
 
     if st.session_state.last_cs_wa_link:
         st.link_button(
-            "Konfirmasi melalui Admin via WhatsApp",
+            "💬 Konfirmasi ke Admin via WhatsApp",
             st.session_state.last_cs_wa_link,
             use_container_width=True,
         )
@@ -1617,7 +1692,7 @@ with st.sidebar:
                         d["nama_outlet"],
                         d["no_wa"],
                         d["alamat_pengiriman"],
-                        d["timestamp"],
+                        format_tanggal_wa_dari_string(d["timestamp"]),
                         items_order,
                         d["total"],
                     )
