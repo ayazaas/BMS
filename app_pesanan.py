@@ -486,6 +486,8 @@ if "show_success" not in st.session_state:
     st.session_state.show_success = False
 if "last_wa_link" not in st.session_state:
     st.session_state.last_wa_link = None
+if "last_cs_wa_link" not in st.session_state:
+    st.session_state.last_cs_wa_link = None
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
@@ -581,6 +583,57 @@ def build_nota_wa_text(
     baris.append(
         "Terima kasih atas kepercayaan Anda kepada Toko WG."
     )
+
+    return "\n".join(baris)
+
+
+def build_konfirmasi_cs_text(
+    order_id,
+    nama_outlet,
+    no_wa,
+    alamat_pengiriman,
+    timestamp,
+    detail_pesanan,
+    total_harga,
+):
+    """
+    Template pesan WhatsApp dari OUTLET ke CS/Admin untuk
+    konfirmasi pesanan yang baru saja dibuat outlet tersebut.
+    """
+    garis = "━" * 20
+
+    baris = [
+        "Halo Admin/CS Toko WG,",
+        "Saya ingin konfirmasi pesanan yang baru saja saya buat:",
+        "",
+        "*KONFIRMASI PESANAN OUTLET*",
+        f"Order ID : {order_id}",
+        f"Tanggal  : {timestamp}",
+        f"Outlet   : {nama_outlet}",
+        f"No. WA   : {no_wa}",
+    ]
+
+    if alamat_pengiriman:
+        baris.append(f"Alamat   : {alamat_pengiriman}")
+
+    baris.append(garis)
+    baris.append("*Detail Pesanan*")
+
+    for idx, item in enumerate(detail_pesanan, start=1):
+        baris.append(f"{idx}. [{item['provider']}] {item['produk']}")
+        baris.append(f"   Qty      : {item['qty']}")
+        baris.append(
+            f"   Harga    : {format_rupiah(item['harga_satuan'])}"
+        )
+        baris.append(
+            f"   Subtotal : {format_rupiah(item['subtotal'])}"
+        )
+
+    baris.append(garis)
+    baris.append("*TOTAL PESANAN*")
+    baris.append(format_rupiah(total_harga))
+    baris.append("")
+    baris.append("Mohon dikonfirmasi dan diproses ya. Terima kasih 🙏")
 
     return "\n".join(baris)
 
@@ -1181,7 +1234,7 @@ if detail_pesanan:
 # ============================================================
 
 if st.button(
-    "🧾 Konfirmasi & Kirim Pesanan",
+    "🧾 Kirim Pesanan",
     type="primary",
     use_container_width=True,
     disabled=not sheet_ok,
@@ -1261,6 +1314,31 @@ if st.button(
                 f"?text={quote(teks_nota)}"
             )
 
+            # ----------------------------------------------------------
+            # Link WA konfirmasi ke CS/Admin (nomor tetap dari secrets)
+            # ----------------------------------------------------------
+            cs_wa_number = os.environ.get("cs_wa_number")
+
+            if cs_wa_number:
+                teks_konfirmasi_cs = build_konfirmasi_cs_text(
+                    order_id,
+                    nama_outlet,
+                    no_wa,
+                    alamat_pengiriman,
+                    timestamp,
+                    detail_pesanan,
+                    total_harga,
+                )
+
+                nomor_cs_tujuan = format_no_wa(cs_wa_number)
+
+                st.session_state.last_cs_wa_link = (
+                    f"https://wa.me/{nomor_cs_tujuan}"
+                    f"?text={quote(teks_konfirmasi_cs)}"
+                )
+            else:
+                st.session_state.last_cs_wa_link = None
+
             st.session_state.last_order_id = order_id
             st.session_state.show_success = True
 
@@ -1285,6 +1363,18 @@ if (
         "Pesanan tersimpan! "
         f"Order ID: **{st.session_state.last_order_id}**"
     )
+
+    if st.session_state.last_cs_wa_link:
+        st.link_button(
+            "💬 Konfirmasi ke CS via WhatsApp",
+            st.session_state.last_cs_wa_link,
+            use_container_width=True,
+        )
+    else:
+        st.caption(
+            "⚠️ Nomor WA CS belum dikonfigurasi "
+            "(`cs_wa_number` di Railway Variables)."
+        )
 
     st.image(
         st.session_state.last_receipt,
