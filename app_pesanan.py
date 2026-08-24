@@ -876,8 +876,8 @@ provider_terpilih = st.selectbox(
 )
 
 keyword = st.text_input(
-    "Cari produk / kode voucher",
-    placeholder="Contoh: 5GB atau KIVFIH0",
+    "Cari produk",
+    placeholder="Contoh: 5GB",
 )
 
 produk_tampil = produk_df.copy()
@@ -906,7 +906,7 @@ if keyword:
 # PAGINATION PRODUK (10 produk / halaman)
 # ============================================================
 
-ITEMS_PER_PAGE = 10
+ITEMS_PER_PAGE = 9
 
 total_produk_filter = len(produk_tampil)
 total_halaman = max(1, -(-total_produk_filter // ITEMS_PER_PAGE))  # ceil division
