@@ -24,42 +24,9 @@ NAMA_WORKSHEET_STATUS = "StatusKirim"
 # tergantung timezone server (mis. Railway biasanya UTC).
 WIB = ZoneInfo("Asia/Jakarta")
 
-BULAN_ID = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-]
-
-
 def now_wib():
     """Waktu sekarang di zona WIB (real-time, bukan waktu server)."""
     return datetime.now(WIB)
-
-
-def format_tanggal_wa(dt):
-    """
-    Format tanggal untuk template chat WhatsApp (nota pesanan &
-    konfirmasi ke admin). Dipusatkan di satu fungsi supaya kedua
-    template SELALU memakai format tanggal yang sama persis.
-    Contoh hasil: "24 Agustus 2026, 14:30 WIB"
-    """
-    return (
-        f"{dt.day} {BULAN_ID[dt.month - 1]} {dt.year}, "
-        f"{dt.strftime('%H:%M')} WIB"
-    )
-
-
-def format_tanggal_wa_dari_string(teks_timestamp):
-    """
-    Versi format_tanggal_wa() untuk timestamp yang sudah tersimpan
-    sebagai string di Google Sheets (format "%Y-%m-%d %H:%M:%S").
-    Dipakai di Panel Admin. Kalau gagal parse, kembalikan teks asli
-    supaya tidak error.
-    """
-    try:
-        dt = datetime.strptime(str(teks_timestamp).strip(), "%Y-%m-%d %H:%M:%S")
-        return format_tanggal_wa(dt)
-    except (TypeError, ValueError):
-        return str(teks_timestamp)
 
 
 st.set_page_config(
@@ -1322,13 +1289,8 @@ if st.button(
         )
 
     else:
-        waktu_sekarang = now_wib()
-        # Untuk disimpan ke Google Sheets (format baku, mudah diolah)
-        timestamp = waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S")
-        # Untuk ditampilkan di template chat WA (nota & konfirmasi admin)
-        # — dipusatkan lewat format_tanggal_wa() supaya kedua template
-        # selalu memakai format tanggal yang identik.
-        timestamp_wa = format_tanggal_wa(waktu_sekarang)
+        # timestamp: format baku untuk disimpan ke Google Sheets.
+        timestamp = now_wib().strftime("%Y-%m-%d %H:%M:%S")
 
         order_id = buat_order_id()
 
@@ -1351,10 +1313,31 @@ if st.button(
         ]
 
         try:
-            worksheet.append_rows(
+            hasil_append = worksheet.append_rows(
                 rows_to_append,
                 value_input_option="USER_ENTERED",
             )
+
+            # Google Sheets bisa memformat ulang tampilan tanggal/jam
+            # saat parsing USER_ENTERED (mis. jam tunggal tanpa nol di
+            # depan seperti "8:21:53"). Supaya template chat WA selalu
+            # sama persis dengan yang ada di kolom timestamp sheet,
+            # ambil langsung nilai selnya setelah tersimpan.
+            timestamp_wa = timestamp
+            try:
+                updated_range = hasil_append["updates"]["updatedRange"]
+                baris_pertama = int(
+                    "".join(
+                        ch
+                        for ch in updated_range.split("!")[1].split(":")[0]
+                        if ch.isdigit()
+                    )
+                )
+                nilai_sel = worksheet.acell(f"A{baris_pertama}").value
+                if nilai_sel:
+                    timestamp_wa = nilai_sel
+            except Exception:
+                pass
 
             st.session_state.last_receipt = build_receipt_image(
                 order_id,
@@ -1691,7 +1674,7 @@ with st.sidebar:
                         d["nama_outlet"],
                         d["no_wa"],
                         d["alamat_pengiriman"],
-                        format_tanggal_wa_dari_string(d["timestamp"]),
+                        d["timestamp"],
                         items_order,
                         d["total"],
                     )
