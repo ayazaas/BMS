@@ -192,7 +192,7 @@ div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
     gap: 0 !important;
     border: 1px solid rgba(49, 51, 63, 0.20) !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
     background: rgba(250, 250, 250, 0.8) !important;
 }
@@ -210,9 +210,9 @@ div[class*="st-key-qty_plus_"] {
 div[class*="st-key-qty_minus_"] button,
 div[class*="st-key-qty_plus_"] button {
     width: 100% !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    max-height: 32px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
@@ -221,7 +221,7 @@ div[class*="st-key-qty_plus_"] button {
     color: #30323d !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 18px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
     display: flex !important;
@@ -234,7 +234,7 @@ div[class*="st-key-qty_plus_"] button * {
     color: inherit !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 18px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
 }
@@ -277,11 +277,11 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
     background: transparent !important;
     box-shadow: none !important;
     text-align: center !important;
-    height: 32px !important;
-    min-height: 32px !important;
+    height: 24px !important;
+    min-height: 24px !important;
     padding: 0 4px !important;
     font-weight: 700 !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     color: #30323d !important;
 }
 
