@@ -85,6 +85,38 @@ header[data-testid="stHeader"] {
 }
 
 /* ========================================================
+   HEADER STATIS (2 BARIS) — TIDAK RESPONSIVE
+   Ukuran font memakai px tetap (bukan clamp/vw/rem responsif)
+   supaya tampilan header sama persis di PC, laptop, maupun HP.
+   ======================================================== */
+.wg-header {
+    margin: 0 0 0.15rem 0 !important;
+}
+
+.wg-header-line1 {
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+    color: #1a1a1a !important;
+    white-space: nowrap !important;
+}
+
+.wg-header-line2 {
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+    color: #1a1a1a !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 600px) {
+    .wg-header-line1,
+    .wg-header-line2 {
+        font-size: 28px !important;
+    }
+}
+
+/* ========================================================
    PRODUCT CARD
    ======================================================== */
 div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -919,7 +951,15 @@ def batalkan_tandai(ws_status, order_id):
 # HEADER
 # ============================================================
 
-st.title("🛒 Form Pemesanan Outlet Toko WG")
+st.markdown(
+    """
+    <div class="wg-header">
+        <div class="wg-header-line1">🛒 Toko WG</div>
+        <div class="wg-header-line2">Form Order</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
 # ============================================================
@@ -947,7 +987,7 @@ alamat_pengiriman = st.text_input(
     placeholder="Jl. Ahmad Yani No. 2",
 )
 
-st.caption("Alamat pengiriman bersifat opsional.")
+st.caption("Alamat pengiriman hanya untuk transaksi Fisik Matengan")
 st.divider()
 
 # ============================================================
@@ -956,9 +996,7 @@ st.divider()
 
 st.subheader("Pilih Produk")
 
-daftar_provider = [
-    "Semua Provider"
-] + sorted(
+daftar_provider = sorted(
     produk_df["provider"].dropna().unique().tolist()
 )
 
@@ -974,7 +1012,7 @@ keyword = st.text_input(
 
 produk_tampil = produk_df.copy()
 
-if provider_terpilih != "Semua Provider":
+if provider_terpilih:
     produk_tampil = produk_tampil[
         produk_tampil["provider"] == provider_terpilih
     ]
@@ -995,10 +1033,10 @@ if keyword:
     ]
 
 # ============================================================
-# PAGINATION PRODUK (10 produk / halaman)
+# PAGINATION PRODUK (15 produk / halaman -> 5 baris x 3 kolom)
 # ============================================================
 
-ITEMS_PER_PAGE = 9
+ITEMS_PER_PAGE = 15
 
 total_produk_filter = len(produk_tampil)
 total_halaman = max(1, -(-total_produk_filter // ITEMS_PER_PAGE))  # ceil division
