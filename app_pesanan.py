@@ -112,11 +112,29 @@ header[data-testid="stHeader"] {
 
 /* Ukuran subheader ("Data Outlet", "Pilih Provider") dikunci dengan
    px tetap dan dibuat lebih kecil dari header utama di atas, supaya
-   hirarki ukuran (Header > Subheader) sama persis di semua device. */
+   hirarki ukuran (Header > Subheader) sama persis di semua device.
+   Margin atas/bawahnya juga dirapatkan supaya tidak banyak ruang
+   kosong di sekitar tiap judul section. */
 .block-container h3 {
     font-size: 20px !important;
     line-height: 1.35 !important;
     white-space: nowrap !important;
+    margin-top: 0.3rem !important;
+    margin-bottom: 0.2rem !important;
+}
+
+/* Rapatkan garis pembatas (divider) antar section utama, supaya
+   tidak ada jarak besar yang terbuang sia-sia. */
+.block-container hr {
+    margin: 0.5rem 0 !important;
+}
+
+/* Rapatkan jarak bawah widget umum (dropdown/input) di luar
+   product card, tanpa mengubah spacing di dalam card produk
+   (yang sudah diatur khusus lewat aturan stVerticalBlockBorderWrapper
+   di bawah dan menang karena urutannya lebih akhir). */
+.block-container div[data-testid="element-container"] {
+    margin-bottom: 0.3rem !important;
 }
 
 /* ========================================================
