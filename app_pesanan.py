@@ -192,15 +192,9 @@ div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
     align-items: center !important;
     justify-content: center !important;
     gap: 0 !important;
-    height: 26px !important;
-    min-height: 26px !important;
-    /* overflow diubah dari hidden -> visible SUPAYA ANGKA DI DALAM
-       INPUT TIDAK IKUT TER-CROP kalau tinggi asli elemen <input>
-       di browser beda tipis dari asumsi CSS ini. Ini satu-satunya
-       alasan angka bisa "hilang" padahal datanya sudah benar. */
-    overflow: visible !important;
     border: 1px solid rgba(49, 51, 63, 0.20) !important;
     border-radius: 8px !important;
+    overflow: hidden !important;
     background: rgba(250, 250, 250, 0.8) !important;
 }
 
@@ -216,8 +210,6 @@ div[class*="st-key-qtybox-"] [data-testid="element-container"],
 div[class*="st-key-qtybox-"] [data-testid="stElementContainer"] {
     padding: 0 !important;
     margin: 0 !important;
-    height: 26px !important;
-    min-height: 26px !important;
 }
 
 /* Tombol MINUS & PLUS ditembak langsung lewat key-nya sendiri */
@@ -279,35 +271,31 @@ div[class*="st-key-qty_plus_"] {
 }
 
 /* Input angka di tengah — tetap bisa diketik manual.
-   Semua lapisan div bawaan Streamlit (termasuk pembungkus
-   data-baseweb) diratakan tembus pandang & disamakan tingginya
-   supaya kotak angka tidak punya "kotak abu-abu" sendiri yang
-   melenceng dari tinggi tombol − / +.
-   height diganti jadi min-height (bukan height+max-height kaku)
-   khusus di 3 rule input di bawah ini, supaya ANGKA TIDAK
-   TER-CROP kalau tingginya beda tipis — ini satu-satunya
-   penyesuaian dibanding versi asli. */
+   Hanya background/border/padding lapisan bawaan Streamlit yang
+   dinolkan (bukan display/height dipaksa flex ke semua div),
+   supaya struktur internal komponen input tidak rusak dan angka
+   tetap tampil & bisa diklik +/- seperti biasa. */
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
     width: 100% !important;
-    min-height: 24px !important;
-    display: flex !important;
-    align-items: center !important;
     background: transparent !important;
 }
 
-div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div,
-div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="input"],
-div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] > div {
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="input"],
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
-    min-height: 24px !important;
-    width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
 }
 
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
@@ -316,16 +304,13 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
     background: transparent !important;
     box-shadow: none !important;
     text-align: center !important;
-    min-height: 24px !important;
+    height: 24px !important;
     line-height: 24px !important;
     padding: 0 4px !important;
     margin: 0 !important;
     font-weight: 700 !important;
     font-size: 12px !important;
     color: #30323d !important;
-    -webkit-text-fill-color: #30323d !important;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
@@ -604,23 +589,6 @@ else:
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty.setdefault(kode, 0)
 
-def qty_widget_key(kode):
-    """Key session_state untuk kotak angka qty milik satu kode_voucher."""
-    return f"qtyinput_{kode}"
-
-
-# Pastikan setiap produk sudah punya entry session_state untuk kotak
-# angkanya (dipakai sebagai SATU-SATUNYA sumber tampilan text_input,
-# lewat parameter `key`, TANPA parameter `value`). Dengan pola ini,
-# menulis ke st.session_state[qty_widget_key(kode)] di dalam callback
-# tombol -/+ akan LANGSUNG mengubah apa yang tertampil di kotak, tanpa
-# perlu widget dibuat ulang dan tanpa memicu error konflik value/key.
-for kode in produk_df["kode_voucher"]:
-    st.session_state.setdefault(
-        qty_widget_key(kode),
-        str(st.session_state.qty.get(kode, 0)),
-    )
-
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
 if "last_receipt_name" not in st.session_state:
@@ -637,7 +605,6 @@ if "last_order_id" not in st.session_state:
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
-        st.session_state[qty_widget_key(kode)] = "0"
     st.session_state["_do_reset_qty"] = False
 
 
@@ -649,19 +616,13 @@ def _parse_qty(value):
 
 
 def tambah(kode):
-    baru = st.session_state.qty.get(kode, 0) + 1
-    st.session_state.qty[kode] = baru
-    # Callback tombol dijalankan SEBELUM script rerun & SEBELUM widget
-    # text_input kotak angka dibuat ulang di run berikutnya. Karena itu,
-    # menulis langsung ke session_state milik widget tsb di sini aman
-    # dan akan langsung tampil begitu rerun terjadi.
-    st.session_state[qty_widget_key(kode)] = str(baru)
+    st.session_state.qty[kode] = st.session_state.qty.get(kode, 0) + 1
 
 
 def kurang(kode):
-    baru = max(0, st.session_state.qty.get(kode, 0) - 1)
-    st.session_state.qty[kode] = baru
-    st.session_state[qty_widget_key(kode)] = str(baru)
+    st.session_state.qty[kode] = max(
+        0, st.session_state.qty.get(kode, 0) - 1
+    )
 
 
 def format_rupiah(n):
@@ -1242,24 +1203,19 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                 )
 
                             with c_qty:
-                                # PENTING: widget ini HANYA pakai `key`, TIDAK
-                                # pakai parameter `value`. Isinya sepenuhnya
-                                # dikendalikan lewat st.session_state[key]
-                                # (di-set default-nya di atas, dan diupdate
-                                # langsung oleh tambah()/kurang()). Ini pola
-                                # resmi Streamlit untuk mengubah isi widget
-                                # dari luar (mis. dari tombol lain) tanpa
-                                # bentrok/tanpa perlu remount.
+                                # Widget input TIDAK memakai key Session State.
+                                # Nilainya selalu berasal dari qty sebagai satu-satunya
+                                # sumber data. Ini sengaja untuk menghindari seluruh
+                                # konflik "default value + Session State API".
                                 teks_qty = st.text_input(
                                     f"Jumlah {kode}",
-                                    key=qty_widget_key(kode),
+                                    value=str(qty_sekarang),
                                     disabled=(harga == 0),
                                     label_visibility="collapsed",
                                     placeholder="0",
                                 )
 
-                                # Saat user mengetik manual, sinkronkan balik
-                                # ke qty (sumber utama untuk hitung total dsb).
+                                # Saat user mengetik, langsung sinkronkan ke qty.
                                 nilai_ketik = _parse_qty(teks_qty)
                                 if nilai_ketik != st.session_state.qty.get(kode, 0):
                                     st.session_state.qty[kode] = nilai_ketik
