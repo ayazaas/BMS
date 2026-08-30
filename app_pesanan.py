@@ -109,7 +109,7 @@ header[data-testid="stHeader"] {
     white-space: nowrap !important;
 }
 
-/* Ukuran subheader ("Data Outlet", "Pilih Produk") dikunci dengan
+/* Ukuran subheader ("Data Outlet", "Pilih Provider") dikunci dengan
    px tetap dan dibuat lebih kecil dari header utama di atas, supaya
    hirarki ukuran (Header > Subheader) sama persis di semua device. */
 .block-container h3 {
@@ -1040,7 +1040,7 @@ st.divider()
 # FILTER PRODUK
 # ============================================================
 
-st.subheader("Pilih Produk")
+st.subheader("Pilih Provider")
 
 daftar_provider = sorted(
     produk_df["provider"].dropna().unique().tolist()
@@ -1049,6 +1049,7 @@ daftar_provider = sorted(
 provider_terpilih = st.selectbox(
     "Filter Provider",
     daftar_provider,
+    label_visibility="collapsed",
 )
 
 keyword = st.text_input(
