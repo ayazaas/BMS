@@ -94,26 +94,28 @@ header[data-testid="stHeader"] {
 }
 
 .wg-header-line1 {
-    font-size: 28px !important;
+    font-size: 36px !important;
     font-weight: 800 !important;
-    line-height: 1.3 !important;
+    line-height: 1.25 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
 }
 
 .wg-header-line2 {
-    font-size: 28px !important;
+    font-size: 36px !important;
     font-weight: 800 !important;
-    line-height: 1.3 !important;
+    line-height: 1.25 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
 }
 
-@media (max-width: 600px) {
-    .wg-header-line1,
-    .wg-header-line2 {
-        font-size: 28px !important;
-    }
+/* Ukuran subheader ("Data Outlet", "Pilih Produk") dikunci dengan
+   px tetap dan dibuat lebih kecil dari header utama di atas, supaya
+   hirarki ukuran (Header > Subheader) sama persis di semua device. */
+.block-container h3 {
+    font-size: 20px !important;
+    line-height: 1.35 !important;
+    white-space: nowrap !important;
 }
 
 /* ========================================================
@@ -401,29 +403,25 @@ body.wg-admin-fullscreen .main {
 }
 
 
-@media (max-width: 600px) {
-    div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input,
-    div[class*="st-key-qty_minus_"] button,
-    div[class*="st-key-qty_plus_"] button {
-        height: 34px !important;
-        min-height: 34px !important;
-        max-height: 34px !important;
-    }
+/* Catatan: ukuran tombol qty & padding card SENGAJA tidak diberi
+   override khusus mobile lagi, supaya tampilannya statis/sama
+   persis baik dibuka di PC, laptop, maupun HP. */
 
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 0.45rem !important;
-    }
+/* ========================================================
+   BARIS HARGA + QTY (SATU BARIS, QTY DI SEBELAH KANAN HARGA)
+   flex-wrap: nowrap dipaksa supaya harga & kontrol qty selalu
+   sejajar dalam satu baris di device manapun (tidak pernah
+   turun/stack ke bawah seperti perilaku default kolom Streamlit
+   di layar sempit).
+   ======================================================== */
+div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
 }
 
-
-@media (max-width: 600px) {
-    .wg-admin-actions .stButton > button,
-    .wg-admin-actions [data-testid="stLinkButton"] {
-        height: 42px !important;
-        min-height: 42px !important;
-        max-height: 42px !important;
-        font-size: 0.88rem !important;
-    }
+div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
 }
 </style>
 
@@ -1115,59 +1113,70 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                 st.markdown(f"**{nama}**")
                 st.caption(f"{provider}")
 
-                if harga > 0:
-                    st.markdown(f"**{format_rupiah(harga)}**")
-                else:
-                    st.caption("⚠️ Harga belum tersedia")
+                price_row = st.container(key=f"pricerow-{kode}")
 
-                qty_box = st.container(key=f"qtybox-{kode}")
-
-                with qty_box:
-                    c_minus, c_qty, c_plus = st.columns(
-                        [1, 1.6, 1],
+                with price_row:
+                    c_harga, c_qty_group = st.columns(
+                        [1, 1.35],
                         gap="small",
                         vertical_alignment="center",
                     )
 
-                    with c_minus:
-                        st.container(key=f"qty_minus_{kode}")
-                        st.button(
-                            "−",
-                            key=f"qty_minus_{kode}_btn",
-                            on_click=kurang,
-                            args=(kode,),
-                            disabled=(harga == 0),
-                            use_container_width=True,
-                        )
+                    with c_harga:
+                        if harga > 0:
+                            st.markdown(f"**{format_rupiah(harga)}**")
+                        else:
+                            st.caption("⚠️ Harga belum tersedia")
 
-                    with c_qty:
-                        # Widget input TIDAK memakai key Session State.
-                        # Nilainya selalu berasal dari qty sebagai satu-satunya
-                        # sumber data. Ini sengaja untuk menghindari seluruh
-                        # konflik "default value + Session State API".
-                        teks_qty = st.text_input(
-                            f"Jumlah {kode}",
-                            value=str(qty_sekarang),
-                            disabled=(harga == 0),
-                            label_visibility="collapsed",
-                            placeholder="0",
-                        )
+                    with c_qty_group:
+                        qty_box = st.container(key=f"qtybox-{kode}")
 
-                        # Saat user mengetik, langsung sinkronkan ke qty.
-                        nilai_ketik = _parse_qty(teks_qty)
-                        if nilai_ketik != st.session_state.qty.get(kode, 0):
-                            st.session_state.qty[kode] = nilai_ketik
+                        with qty_box:
+                            c_minus, c_qty, c_plus = st.columns(
+                                [1, 1.6, 1],
+                                gap="small",
+                                vertical_alignment="center",
+                            )
 
-                    with c_plus:
-                        st.container(key=f"qty_plus_{kode}")
-                        st.button(
-                            "+",
-                            key=f"qty_plus_{kode}_btn",
-                            on_click=tambah,
-                            args=(kode,),
-                            disabled=(harga == 0),
-                            use_container_width=True,
-                        )
+                            with c_minus:
+                                st.container(key=f"qty_minus_{kode}")
+                                st.button(
+                                    "−",
+                                    key=f"qty_minus_{kode}_btn",
+                                    on_click=kurang,
+                                    args=(kode,),
+                                    disabled=(harga == 0),
+                                    use_container_width=True,
+                                )
+
+                            with c_qty:
+                                # Widget input TIDAK memakai key Session State.
+                                # Nilainya selalu berasal dari qty sebagai satu-satunya
+                                # sumber data. Ini sengaja untuk menghindari seluruh
+                                # konflik "default value + Session State API".
+                                teks_qty = st.text_input(
+                                    f"Jumlah {kode}",
+                                    value=str(qty_sekarang),
+                                    disabled=(harga == 0),
+                                    label_visibility="collapsed",
+                                    placeholder="0",
+                                )
+
+                                # Saat user mengetik, langsung sinkronkan ke qty.
+                                nilai_ketik = _parse_qty(teks_qty)
+                                if nilai_ketik != st.session_state.qty.get(kode, 0):
+                                    st.session_state.qty[kode] = nilai_ketik
+
+                            with c_plus:
+                                st.container(key=f"qty_plus_{kode}")
+                                st.button(
+                                    "+",
+                                    key=f"qty_plus_{kode}_btn",
+                                    on_click=tambah,
+                                    args=(kode,),
+                                    disabled=(harga == 0),
+                                    use_container_width=True,
+                                )
 
 # ============================================================
 # KONTROL PAGINATION (Sebelumnya / Nomor Halaman / Selanjutnya)
