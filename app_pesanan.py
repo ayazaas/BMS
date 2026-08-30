@@ -16,7 +16,8 @@ from PIL import Image, ImageDraw, ImageFont
 # ============================================================
 
 NAMA_WORKSHEET_PESANAN = "Pesanan"
-NAMA_WORKSHEET_PRODUK = "Produk"
+NAMA_WORKSHEET_PRODUK_SNIPER = "Produk_Sniper"
+NAMA_WORKSHEET_PRODUK_MATENGAN = "Produk_Matengan"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
 
 # Zona waktu WIB (Waktu Indonesia Barat, UTC+7).
@@ -513,7 +514,8 @@ def connect_sheet():
     # WORKSHEET
     # ========================================================
     ws_pesanan = spreadsheet.worksheet(NAMA_WORKSHEET_PESANAN)
-    ws_produk = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK)
+    ws_produk_sniper = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK_SNIPER)
+    ws_produk_matengan = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK_MATENGAN)
 
     try:
         ws_status = spreadsheet.worksheet(NAMA_WORKSHEET_STATUS)
@@ -530,11 +532,16 @@ def connect_sheet():
             value_input_option="USER_ENTERED",
         )
 
-    return ws_pesanan, ws_produk, ws_status
+    return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status
 
 
 try:
-    worksheet, worksheet_produk, worksheet_status = connect_sheet()
+    (
+        worksheet,
+        worksheet_produk_sniper,
+        worksheet_produk_matengan,
+        worksheet_status,
+    ) = connect_sheet()
     sheet_ok = True
 
 except Exception as e:
@@ -555,7 +562,7 @@ except Exception as e:
 # ============================================================
 
 @st.cache_data(ttl=60)
-def load_produk(_worksheet_produk):
+def load_produk(_worksheet_produk, kategori_key):
     data = _worksheet_produk.get_all_records()
     df = pd.DataFrame(data)
 
@@ -570,24 +577,18 @@ def load_produk(_worksheet_produk):
 
     return df
 
-
-produk_df = load_produk(worksheet_produk)
-
-if produk_df.empty:
-    st.warning("Belum ada data produk pada worksheet Produk.")
-    st.stop()
+# Catatan: produk_df (dan qty state yang bergantung padanya) baru
+# dimuat setelah pengguna memilih Kategori (Sniper/Matengan) di
+# bagian "PILIH KATEGORI" di bawah, supaya sheet yang dibaca sesuai
+# kategori yang aktif.
 
 # ============================================================
-# SESSION STATE / QUANTITY STATE
+# SESSION STATE (UMUM — TIDAK BERGANTUNG PADA PRODUK)
 # ============================================================
-# Hanya satu sumber data: st.session_state.qty.
-# Tidak ada state dengan key qtyinput_*, sehingga tidak mungkin terjadi
-# konflik antara default value widget dan Session State API.
-if "qty" not in st.session_state:
-    st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
-else:
-    for kode in produk_df["kode_voucher"]:
-        st.session_state.qty.setdefault(kode, 0)
+# Hanya satu sumber data untuk qty: st.session_state.qty (diinisialisasi
+# nanti setelah produk_df tersedia). Tidak ada state dengan key
+# qtyinput_*, sehingga tidak mungkin terjadi konflik antara default
+# value widget dan Session State API.
 
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
@@ -601,11 +602,6 @@ if "last_cs_wa_link" not in st.session_state:
     st.session_state.last_cs_wa_link = None
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
-
-if st.session_state.get("_do_reset_qty"):
-    for kode in produk_df["kode_voucher"]:
-        st.session_state.qty[kode] = 0
-    st.session_state["_do_reset_qty"] = False
 
 
 def _parse_qty(value):
@@ -1034,6 +1030,46 @@ alamat_pengiriman = st.text_input(
 )
 
 st.caption("Alamat pengiriman hanya untuk transaksi Fisik Matengan")
+st.divider()
+
+# ============================================================
+# PILIH KATEGORI
+# ============================================================
+
+st.subheader("Pilih Kategori")
+
+kategori_terpilih = st.selectbox(
+    "Filter Kategori",
+    ["Sniper", "Matengan"],
+    label_visibility="collapsed",
+)
+
+if kategori_terpilih == "Sniper":
+    worksheet_produk_aktif = worksheet_produk_sniper
+else:
+    worksheet_produk_aktif = worksheet_produk_matengan
+
+produk_df = load_produk(worksheet_produk_aktif, kategori_terpilih)
+
+if produk_df.empty:
+    st.warning(
+        f"Belum ada data produk pada worksheet "
+        f"Produk_{kategori_terpilih}."
+    )
+    st.stop()
+
+# Qty state bergantung pada daftar produk kategori yang sedang aktif.
+if "qty" not in st.session_state:
+    st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
+else:
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty.setdefault(kode, 0)
+
+if st.session_state.get("_do_reset_qty"):
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty[kode] = 0
+    st.session_state["_do_reset_qty"] = False
+
 st.divider()
 
 # ============================================================
