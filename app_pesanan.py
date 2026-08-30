@@ -158,6 +158,26 @@ div[data-testid="stVerticalBlockBorderWrapper"]
     line-height: 1.1 !important;
 }
 
+/* Nama produk & provider dirender lewat HTML custom (bukan
+   st.markdown + st.caption terpisah) supaya jaraknya bisa
+   dikontrol persis dan tidak renggang seperti bawaan Streamlit. */
+.wg-prod-name {
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    line-height: 1.25 !important;
+    color: #1a1a1a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.wg-prod-provider {
+    font-size: 0.78rem !important;
+    line-height: 1.15 !important;
+    color: rgba(49, 51, 63, 0.6) !important;
+    margin: 0.05rem 0 0 0 !important;
+    padding: 0 !important;
+}
+
 /* ========================================================
    QTY BOX: - | ANGKA | +
    Target langsung via key (bukan posisi/nth-child) supaya
@@ -1110,8 +1130,13 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
 
         with kolom[kolom_idx]:
             with st.container(border=True):
-                st.markdown(f"**{nama}**")
-                st.caption(f"{provider}")
+                st.markdown(
+                    f"""
+                    <div class="wg-prod-name">{nama}</div>
+                    <div class="wg-prod-provider">{provider}</div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
                 price_row = st.container(key=f"pricerow-{kode}")
 
