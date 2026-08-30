@@ -182,12 +182,6 @@ div[data-testid="stVerticalBlockBorderWrapper"]
    QTY BOX: - | ANGKA | +
    Target langsung via key (bukan posisi/nth-child) supaya
    tidak rapuh terhadap elemen tambahan di DOM.
-   CATATAN PENTING: sengaja pakai min-height + overflow VISIBLE
-   (bukan height tetap + overflow hidden). Kombinasi height
-   kaku + overflow:hidden gampang membuat ANGKA DI DALAM INPUT
-   ikut ter-crop/ke-hidden kalau tinggi asli elemen <input> di
-   browser sedikit saja berbeda dari asumsi CSS ini — itulah
-   penyebab kotak kelihatan kosong padahal datanya sudah benar.
    ======================================================== */
 div[class*="st-key-qtybox-"] {
     margin-top: 0.05rem !important;
@@ -195,18 +189,25 @@ div[class*="st-key-qtybox-"] {
 
 div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
     display: flex !important;
-    align-items: stretch !important;
+    align-items: center !important;
     justify-content: center !important;
     gap: 0 !important;
-    min-height: 30px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    /* overflow diubah dari hidden -> visible SUPAYA ANGKA DI DALAM
+       INPUT TIDAK IKUT TER-CROP kalau tinggi asli elemen <input>
+       di browser beda tipis dari asumsi CSS ini. Ini satu-satunya
+       alasan angka bisa "hilang" padahal datanya sudah benar. */
+    overflow: visible !important;
     border: 1px solid rgba(49, 51, 63, 0.20) !important;
     border-radius: 8px !important;
-    overflow: visible !important;
     background: rgba(250, 250, 250, 0.8) !important;
 }
 
 div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
     min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
 div[class*="st-key-qtybox-"] [data-testid="stColumn"],
@@ -215,7 +216,8 @@ div[class*="st-key-qtybox-"] [data-testid="element-container"],
 div[class*="st-key-qtybox-"] [data-testid="stElementContainer"] {
     padding: 0 !important;
     margin: 0 !important;
-    min-height: 30px !important;
+    height: 26px !important;
+    min-height: 26px !important;
 }
 
 /* Tombol MINUS & PLUS ditembak langsung lewat key-nya sendiri */
@@ -227,7 +229,9 @@ div[class*="st-key-qty_plus_"] {
 div[class*="st-key-qty_minus_"] button,
 div[class*="st-key-qty_plus_"] button {
     width: 100% !important;
-    min-height: 30px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
@@ -236,7 +240,7 @@ div[class*="st-key-qty_plus_"] button {
     color: #30323d !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
     display: flex !important;
@@ -249,7 +253,7 @@ div[class*="st-key-qty_plus_"] button * {
     color: inherit !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
 }
@@ -276,12 +280,16 @@ div[class*="st-key-qty_plus_"] {
 
 /* Input angka di tengah — tetap bisa diketik manual.
    Semua lapisan div bawaan Streamlit (termasuk pembungkus
-   data-baseweb) diratakan tembus pandang, TANPA memaksa
-   height/overflow kaku, supaya angka yang diketik/di-set tidak
-   pernah ter-crop keluar area yang terlihat. */
+   data-baseweb) diratakan tembus pandang & disamakan tingginya
+   supaya kotak angka tidak punya "kotak abu-abu" sendiri yang
+   melenceng dari tinggi tombol − / +.
+   height diganti jadi min-height (bukan height+max-height kaku)
+   khusus di 3 rule input di bawah ini, supaya ANGKA TIDAK
+   TER-CROP kalau tingginya beda tipis — ini satu-satunya
+   penyesuaian dibanding versi asli. */
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
     width: 100% !important;
-    min-height: 30px !important;
+    min-height: 24px !important;
     display: flex !important;
     align-items: center !important;
     background: transparent !important;
@@ -296,7 +304,7 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="ba
     border-radius: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
-    min-height: 30px !important;
+    min-height: 24px !important;
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
@@ -308,14 +316,14 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
     background: transparent !important;
     box-shadow: none !important;
     text-align: center !important;
-    min-height: 30px !important;
-    line-height: 30px !important;
+    min-height: 24px !important;
+    line-height: 24px !important;
     padding: 0 4px !important;
     margin: 0 !important;
     font-weight: 700 !important;
-    font-size: 13px !important;
-    color: #1a1a1a !important;
-    -webkit-text-fill-color: #1a1a1a !important;
+    font-size: 12px !important;
+    color: #30323d !important;
+    -webkit-text-fill-color: #30323d !important;
     opacity: 1 !important;
     visibility: visible !important;
 }
