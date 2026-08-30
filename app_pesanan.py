@@ -184,13 +184,17 @@ div[data-testid="stVerticalBlockBorderWrapper"]
    tidak rapuh terhadap elemen tambahan di DOM.
    ======================================================== */
 div[class*="st-key-qtybox-"] {
-    margin-top: 0.1rem !important;
+    margin-top: 0.05rem !important;
 }
 
 div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
     display: flex !important;
-    align-items: stretch !important;
+    align-items: center !important;
+    justify-content: center !important;
     gap: 0 !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    max-height: 26px !important;
     border: 1px solid rgba(49, 51, 63, 0.20) !important;
     border-radius: 8px !important;
     overflow: hidden !important;
@@ -199,6 +203,18 @@ div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
 
 div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
     min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-qtybox-"] [data-testid="stColumn"],
+div[class*="st-key-qtybox-"] [data-testid="stVerticalBlock"],
+div[class*="st-key-qtybox-"] [data-testid="element-container"],
+div[class*="st-key-qtybox-"] [data-testid="stElementContainer"] {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 26px !important;
+    min-height: 26px !important;
 }
 
 /* Tombol MINUS & PLUS ditembak langsung lewat key-nya sendiri */
@@ -221,7 +237,7 @@ div[class*="st-key-qty_plus_"] button {
     color: #30323d !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
     display: flex !important;
@@ -234,7 +250,7 @@ div[class*="st-key-qty_plus_"] button * {
     color: inherit !important;
     opacity: 1 !important;
     visibility: visible !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
 }
@@ -279,6 +295,7 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
     text-align: center !important;
     height: 24px !important;
     min-height: 24px !important;
+    max-height: 24px !important;
     padding: 0 4px !important;
     font-weight: 700 !important;
     font-size: 12px !important;
