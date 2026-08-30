@@ -599,16 +599,22 @@ else:
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty.setdefault(kode, 0)
 
-# Revisi per produk. Dipakai sebagai bagian dari `key` widget qty supaya
-# Streamlit MEMBUAT ULANG widget (dan otomatis pakai value terbaru) setiap
-# kali qty berubah lewat tombol - / +. Kalau user ngetik manual di kotak
-# angka, revisi TIDAK di-bump, supaya widget tidak dibuat ulang dan fokus/
-# kursor ketikan tidak hilang di tengah jalan.
-if "qty_rev" not in st.session_state:
-    st.session_state.qty_rev = {kode: 0 for kode in produk_df["kode_voucher"]}
-else:
-    for kode in produk_df["kode_voucher"]:
-        st.session_state.qty_rev.setdefault(kode, 0)
+def qty_widget_key(kode):
+    """Key session_state untuk kotak angka qty milik satu kode_voucher."""
+    return f"qtyinput_{kode}"
+
+
+# Pastikan setiap produk sudah punya entry session_state untuk kotak
+# angkanya (dipakai sebagai SATU-SATUNYA sumber tampilan text_input,
+# lewat parameter `key`, TANPA parameter `value`). Dengan pola ini,
+# menulis ke st.session_state[qty_widget_key(kode)] di dalam callback
+# tombol -/+ akan LANGSUNG mengubah apa yang tertampil di kotak, tanpa
+# perlu widget dibuat ulang dan tanpa memicu error konflik value/key.
+for kode in produk_df["kode_voucher"]:
+    st.session_state.setdefault(
+        qty_widget_key(kode),
+        str(st.session_state.qty.get(kode, 0)),
+    )
 
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
@@ -626,7 +632,7 @@ if "last_order_id" not in st.session_state:
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
-        st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
+        st.session_state[qty_widget_key(kode)] = "0"
     st.session_state["_do_reset_qty"] = False
 
 
@@ -638,15 +644,19 @@ def _parse_qty(value):
 
 
 def tambah(kode):
-    st.session_state.qty[kode] = st.session_state.qty.get(kode, 0) + 1
-    st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
+    baru = st.session_state.qty.get(kode, 0) + 1
+    st.session_state.qty[kode] = baru
+    # Callback tombol dijalankan SEBELUM script rerun & SEBELUM widget
+    # text_input kotak angka dibuat ulang di run berikutnya. Karena itu,
+    # menulis langsung ke session_state milik widget tsb di sini aman
+    # dan akan langsung tampil begitu rerun terjadi.
+    st.session_state[qty_widget_key(kode)] = str(baru)
 
 
 def kurang(kode):
-    st.session_state.qty[kode] = max(
-        0, st.session_state.qty.get(kode, 0) - 1
-    )
-    st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
+    baru = max(0, st.session_state.qty.get(kode, 0) - 1)
+    st.session_state.qty[kode] = baru
+    st.session_state[qty_widget_key(kode)] = str(baru)
 
 
 def format_rupiah(n):
@@ -1227,28 +1237,24 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                 )
 
                             with c_qty:
-                                # Widget qty pakai `key` yang mengandung nomor
-                                # revisi (qty_rev), bukan qty itu sendiri. Ini
-                                # yang bikin kotak angka OTOMATIS ter-update
-                                # saat tombol -/+ diklik, tapi tidak
-                                # "loncat-loncat" atau kehilangan fokus saat
-                                # user mengetik manual.
-                                rev = st.session_state.qty_rev.get(kode, 0)
-
+                                # PENTING: widget ini HANYA pakai `key`, TIDAK
+                                # pakai parameter `value`. Isinya sepenuhnya
+                                # dikendalikan lewat st.session_state[key]
+                                # (di-set default-nya di atas, dan diupdate
+                                # langsung oleh tambah()/kurang()). Ini pola
+                                # resmi Streamlit untuk mengubah isi widget
+                                # dari luar (mis. dari tombol lain) tanpa
+                                # bentrok/tanpa perlu remount.
                                 teks_qty = st.text_input(
                                     f"Jumlah {kode}",
-                                    value=str(qty_sekarang),
-                                    key=f"qtyinput_{kode}_{rev}",
+                                    key=qty_widget_key(kode),
                                     disabled=(harga == 0),
                                     label_visibility="collapsed",
                                     placeholder="0",
                                 )
 
-                                # Saat user mengetik, langsung sinkronkan ke qty.
-                                # Revisi SENGAJA tidak dinaikkan di sini supaya
-                                # key tidak berubah tiap keystroke (kalau
-                                # berubah, widget dibuat ulang dan fokus/kursor
-                                # ketikan akan hilang).
+                                # Saat user mengetik manual, sinkronkan balik
+                                # ke qty (sumber utama untuk hitung total dsb).
                                 nilai_ketik = _parse_qty(teks_qty)
                                 if nilai_ketik != st.session_state.qty.get(kode, 0):
                                     st.session_state.qty[kode] = nilai_ketik
