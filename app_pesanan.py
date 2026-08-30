@@ -599,6 +599,17 @@ else:
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty.setdefault(kode, 0)
 
+# Revisi per produk. Dipakai sebagai bagian dari `key` widget qty supaya
+# Streamlit MEMBUAT ULANG widget (dan otomatis pakai value terbaru) setiap
+# kali qty berubah lewat tombol - / +. Kalau user ngetik manual di kotak
+# angka, revisi TIDAK di-bump, supaya widget tidak dibuat ulang dan fokus/
+# kursor ketikan tidak hilang di tengah jalan.
+if "qty_rev" not in st.session_state:
+    st.session_state.qty_rev = {kode: 0 for kode in produk_df["kode_voucher"]}
+else:
+    for kode in produk_df["kode_voucher"]:
+        st.session_state.qty_rev.setdefault(kode, 0)
+
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
 if "last_receipt_name" not in st.session_state:
@@ -615,6 +626,7 @@ if "last_order_id" not in st.session_state:
 if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
+        st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
     st.session_state["_do_reset_qty"] = False
 
 
@@ -627,12 +639,14 @@ def _parse_qty(value):
 
 def tambah(kode):
     st.session_state.qty[kode] = st.session_state.qty.get(kode, 0) + 1
+    st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
 
 
 def kurang(kode):
     st.session_state.qty[kode] = max(
         0, st.session_state.qty.get(kode, 0) - 1
     )
+    st.session_state.qty_rev[kode] = st.session_state.qty_rev.get(kode, 0) + 1
 
 
 def format_rupiah(n):
@@ -1213,19 +1227,28 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                 )
 
                             with c_qty:
-                                # Widget input TIDAK memakai key Session State.
-                                # Nilainya selalu berasal dari qty sebagai satu-satunya
-                                # sumber data. Ini sengaja untuk menghindari seluruh
-                                # konflik "default value + Session State API".
+                                # Widget qty pakai `key` yang mengandung nomor
+                                # revisi (qty_rev), bukan qty itu sendiri. Ini
+                                # yang bikin kotak angka OTOMATIS ter-update
+                                # saat tombol -/+ diklik, tapi tidak
+                                # "loncat-loncat" atau kehilangan fokus saat
+                                # user mengetik manual.
+                                rev = st.session_state.qty_rev.get(kode, 0)
+
                                 teks_qty = st.text_input(
                                     f"Jumlah {kode}",
                                     value=str(qty_sekarang),
+                                    key=f"qtyinput_{kode}_{rev}",
                                     disabled=(harga == 0),
                                     label_visibility="collapsed",
                                     placeholder="0",
                                 )
 
                                 # Saat user mengetik, langsung sinkronkan ke qty.
+                                # Revisi SENGAJA tidak dinaikkan di sini supaya
+                                # key tidak berubah tiap keystroke (kalau
+                                # berubah, widget dibuat ulang dan fokus/kursor
+                                # ketikan akan hilang).
                                 nilai_ketik = _parse_qty(teks_qty)
                                 if nilai_ketik != st.session_state.qty.get(kode, 0):
                                     st.session_state.qty[kode] = nilai_ketik
