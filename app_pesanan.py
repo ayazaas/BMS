@@ -275,16 +275,36 @@ div[class*="st-key-qty_plus_"] {
     border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
 }
 
-/* Input angka di tengah — tetap bisa diketik manual */
+/* Input angka di tengah — tetap bisa diketik manual.
+   Semua lapisan div bawaan Streamlit (termasuk pembungkus
+   data-baseweb) diratakan tembus pandang & disamakan tingginya
+   supaya kotak angka tidak punya "kotak abu-abu" sendiri yang
+   melenceng dari tinggi tombol − / +. */
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
     width: 100% !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
     background: transparent !important;
 }
 
-div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] > div {
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div,
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="input"],
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
@@ -297,6 +317,7 @@ div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
     min-height: 24px !important;
     max-height: 24px !important;
     padding: 0 4px !important;
+    margin: 0 !important;
     font-weight: 700 !important;
     font-size: 12px !important;
     color: #30323d !important;
