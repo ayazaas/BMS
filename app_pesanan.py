@@ -879,7 +879,7 @@ def validate_sn_manual_list(list_input):
 def parse_sn_upload_file(uploaded_file):
     """
     Membaca file .txt berisi SN, satu SN per baris.
-    Maksimal 100 baris SN per file.
+    Maksimal 4000 baris SN per file.
     Mengembalikan tuple (list_sn, pesan_error).
     Baris kosong diabaikan.
     """
@@ -889,9 +889,9 @@ def parse_sn_upload_file(uploaded_file):
     try:
         raw = uploaded_file.getvalue()
 
-        MAX_TXT_SIZE = 5 * 1024 * 1024  # 5 MB
+        MAX_TXT_SIZE = 10 * 1024 * 1024  # 10 MB
         if len(raw) > MAX_TXT_SIZE:
-            return [], "Ukuran file TXT maksimal 5 MB."
+            return [], "Ukuran file TXT maksimal 10 MB."
 
         try:
             text = raw.decode("utf-8-sig")
@@ -902,8 +902,8 @@ def parse_sn_upload_file(uploaded_file):
 
     list_sn = [line.strip() for line in text.splitlines() if line.strip()]
 
-    if len(list_sn) > 100:
-        return [], "File TXT maksimal berisi 100 baris SN."
+    if len(list_sn) > 4000:
+        return [], "File TXT maksimal berisi 4000 baris SN."
 
     return validate_sn_manual_list(list_sn)
 
@@ -1948,10 +1948,10 @@ if detail_pesanan:
 
                     else:
                         # Mode SN Upload.txt: satu file TXT untuk SATU produk.
-                        # Isi file harus 1 SN per baris dan maksimal 100 baris.
+                        # Isi file harus 1 SN per baris dan maksimal 4000 baris.
                         st.caption(
                             f"Upload 1 file .txt untuk {qty} SN "
-                            f"(maksimal 100 baris, 5 MB)"
+                            f"(maksimal 4000 baris, 10 MB)"
                         )
 
                         uploaded_sn_file = st.file_uploader(
@@ -1962,7 +1962,7 @@ if detail_pesanan:
                             help=(
                                 "Satu file untuk produk ini. "
                                 "Tulis 1 SN pada setiap baris. "
-                                "Maksimal 100 baris dan ukuran file 5 MB."
+                                "Maksimal 4000 baris dan ukuran file 10 MB."
                             ),
                         )
 
@@ -2046,7 +2046,7 @@ if detail_pesanan:
                     not err_upload
                     and bool(list_upload)
                     and len(list_upload) == qty
-                    and len(list_upload) <= 100
+                    and len(list_upload) <= 4000
                 )
 
                 mode_valid_count = sum(
@@ -2099,7 +2099,7 @@ if detail_pesanan:
                         "Lengkapi salah satu dari 3 opsi input SN "
                         "(SN Berurutan, SN Acak, atau SN Upload.txt) "
                         "untuk semua produk. Jumlah SN harus sama dengan qty "
-                        "dan file TXT maksimal 100 baris."
+                        "dan file TXT maksimal 4000 baris."
                     )
 
         else:
