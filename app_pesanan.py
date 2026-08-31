@@ -9,6 +9,8 @@ import io
 import random
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 from PIL import Image, ImageDraw, ImageFont
 
              
@@ -17,6 +19,10 @@ NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK_SNIPER = "Produk_Sniper"
 NAMA_WORKSHEET_PRODUK_MATENGAN = "Produk_Matengan"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
+
+# Folder Google Drive tempat file TXT SN disimpan.
+GOOGLE_DRIVE_FOLDER_ID = "1EVZiBuYiJLI7-HyWkLrDvlhwi4BqxcH4"
+MODE_UPLOAD = "SN Upload.txt"
 
                                                             
                                                          
@@ -662,27 +668,26 @@ div[class*="st-key-snpreview-"] {
 
                        
 
-@st.cache_resource
-def connect_sheet():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
-                                                         
-                                                              
+def get_google_credentials():
+    """Membuat credentials dari service account yang disimpan di Railway Variables."""
     gcp_service_account = json.loads(
         os.environ["gcp_service_account"]
     )
 
-    spreadsheet_url = os.environ["spreadsheet_url"]
-
-                      
-                                                              
-    creds = Credentials.from_service_account_info(
+    return Credentials.from_service_account_info(
         gcp_service_account,
-        scopes=scopes,
+        scopes=GOOGLE_SCOPES,
     )
+
+@st.cache_resource
+def connect_sheet():
+    creds = get_google_credentials()
+    spreadsheet_url = os.environ["spreadsheet_url"]
 
     client = gspread.authorize(creds)
 
@@ -710,6 +715,64 @@ def connect_sheet():
         )
 
     return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status
+
+@st.cache_resource
+def connect_drive():
+    """Koneksi Google Drive API menggunakan service account yang sama."""
+    creds = get_google_credentials()
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+def upload_txt_to_drive(drive_service, file_bytes, original_name, order_id, kode_voucher):
+    """Upload TXT SN ke folder Drive Toko WG dan mengembalikan URL file."""
+    if not file_bytes:
+        raise ValueError("File TXT kosong.")
+
+    nama_asli = os.path.basename(original_name or "SN.txt")
+    nama_file = f"{order_id}_{kode_voucher}_{nama_asli}"
+
+    metadata = {
+        "name": nama_file,
+        "parents": [GOOGLE_DRIVE_FOLDER_ID],
+        "mimeType": "text/plain",
+    }
+
+    media = MediaIoBaseUpload(
+        io.BytesIO(file_bytes),
+        mimetype="text/plain",
+        resumable=False,
+    )
+
+    hasil = (
+        drive_service.files()
+        .create(
+            body=metadata,
+            media_body=media,
+            fields="id,name,webViewLink",
+            supportsAllDrives=True,
+        )
+        .execute()
+    )
+
+    file_id = hasil.get("id")
+    if not file_id:
+        raise RuntimeError("Google Drive tidak mengembalikan file ID.")
+
+    # URL ini stabil dan dapat dibuka dari Google Drive.
+    return hasil.get(
+        "webViewLink",
+        f"https://drive.google.com/file/d/{file_id}/view",
+    )
+
+def ensure_file_txt_column(ws):
+    """Pastikan worksheet Pesanan mempunyai kolom bernama file_txt."""
+    headers = ws.row_values(1)
+
+    if "file_txt" in headers:
+        return headers.index("file_txt") + 1
+
+    kolom_baru = len(headers) + 1
+    ws.update_cell(1, kolom_baru, "file_txt")
+    return kolom_baru
 
 try:
     (
@@ -783,6 +846,9 @@ if "sn_manual" not in st.session_state:
                                                           
 if "sn_upload" not in st.session_state:
     st.session_state.sn_upload = {}
+
+if "sn_upload_files" not in st.session_state:
+    st.session_state.sn_upload_files = {}
 
 def _parse_qty(value):
     try:
@@ -1352,6 +1418,7 @@ if st.session_state.get("_do_reset_qty"):
     st.session_state.sn_mode = {}
     st.session_state.sn_manual = {}
     st.session_state.sn_upload = {}
+    st.session_state.sn_upload_files = {}
 
 st.divider()
 
@@ -1677,7 +1744,6 @@ if detail_pesanan:
 
             MODE_BERURUTAN = "SN Berurutan"
             MODE_ACAK = "SN Acak"
-            MODE_UPLOAD = "SN Upload.txt"
 
             def render_sn_preview_box(container_key, list_sn):
                 """
@@ -1892,6 +1958,7 @@ if detail_pesanan:
 
                         if uploaded_sn_file is None:
                             st.session_state.sn_upload[kode] = []
+                            st.session_state.sn_upload_files.pop(kode, None)
                         else:
                             list_upload, upload_error = parse_sn_upload_file(
                                 uploaded_sn_file
@@ -1899,11 +1966,17 @@ if detail_pesanan:
 
                             if upload_error:
                                 st.session_state.sn_upload[kode] = []
+                                st.session_state.sn_upload_files.pop(kode, None)
                                 st.error(upload_error)
                             elif not list_upload:
                                 st.session_state.sn_upload[kode] = []
+                                st.session_state.sn_upload_files.pop(kode, None)
                             else:
                                 st.session_state.sn_upload[kode] = list_upload
+                                st.session_state.sn_upload_files[kode] = {
+                                    "name": uploaded_sn_file.name,
+                                    "bytes": uploaded_sn_file.getvalue(),
+                                }
                                 jumlah_upload = len(list_upload)
                                 item_valid = jumlah_upload == qty
 
@@ -1972,6 +2045,9 @@ if detail_pesanan:
                     [valid_urut, valid_acak, valid_upload]
                 )
 
+                # Default: mode selain Upload.txt tidak mempunyai link file.
+                item["file_txt"] = ""
+
                 if mode_valid_count > 1:
                     item_valid = False
                     item["sn_list"] = []
@@ -1995,6 +2071,8 @@ if detail_pesanan:
                 elif valid_upload:
                     item_valid = True
                     item["sn_list"] = list_upload
+                    # URL Drive diisi setelah order_id dibuat dan file di-upload.
+                    item["file_txt"] = ""
 
                 else:
                     item_valid = False
@@ -2067,27 +2145,51 @@ if st.button(
 
                                                                  
                                                                  
-        rows_to_append = [
-            [
-                timestamp,
-                order_id,
-                nama_outlet,
-                f"'{no_wa.strip()}",
-                alamat_pengiriman,
-                item["provider"],
-                item["kode_voucher"],
-                item["produk"],
-                item["harga_satuan"],
-                item["qty"],
-                item["subtotal"],
-                total_harga,
-                sn_sebagai_teks(sn),
-            ]
-            for item in detail_pesanan
-            for sn in item["sn_list"]
-        ]
-
         try:
+            # Pastikan kolom file_txt tersedia sebelum menambahkan data order.
+            ensure_file_txt_column(worksheet)
+
+            # Upload setiap TXT hanya sekali per produk. Link yang dihasilkan
+            # kemudian ditulis ke kolom file_txt pada semua baris SN produk tersebut.
+            drive_service = None
+            for item in detail_pesanan:
+                item["file_txt"] = ""
+
+                if item.get("sn_list") and item.get("kode_voucher") in st.session_state.sn_upload_files:
+                    if st.session_state.sn_mode.get(item["kode_voucher"]) == MODE_UPLOAD:
+                        if drive_service is None:
+                            drive_service = connect_drive()
+
+                        file_info = st.session_state.sn_upload_files[item["kode_voucher"]]
+                        item["file_txt"] = upload_txt_to_drive(
+                            drive_service,
+                            file_info["bytes"],
+                            file_info["name"],
+                            order_id,
+                            item["kode_voucher"],
+                        )
+
+            rows_to_append = [
+                [
+                    timestamp,
+                    order_id,
+                    nama_outlet,
+                    f"'{no_wa.strip()}",
+                    alamat_pengiriman,
+                    item["provider"],
+                    item["kode_voucher"],
+                    item["produk"],
+                    item["harga_satuan"],
+                    item["qty"],
+                    item["subtotal"],
+                    total_harga,
+                    sn_sebagai_teks(sn),
+                    item.get("file_txt", ""),
+                ]
+                for item in detail_pesanan
+                for sn in item["sn_list"]
+            ]
+
             hasil_append = worksheet.append_rows(
                 rows_to_append,
                 value_input_option="USER_ENTERED",
@@ -2173,6 +2275,9 @@ if st.button(
 
             st.session_state.last_order_id = order_id
             st.session_state.show_success = True
+
+            # Hapus cache file upload dari session agar tidak ikut order berikutnya.
+            st.session_state.sn_upload_files = {}
 
             st.session_state["_do_reset_qty"] = True
             st.rerun()
