@@ -5,3 +5,4 @@ gspread
 google-auth
 Pillow
 openpyxl
+google-api-python-client
