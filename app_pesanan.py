@@ -801,6 +801,9 @@ if "sn_mode" not in st.session_state:
 # Isi kotak-kotak SN mode "SN Acak" per kode_voucher -> list of str
 if "sn_manual" not in st.session_state:
     st.session_state.sn_manual = {}
+# Daftar SN dari file .txt per kode_voucher -> list of str
+if "sn_upload" not in st.session_state:
+    st.session_state.sn_upload = {}
 
 
 def _parse_qty(value):
@@ -871,6 +874,33 @@ def validate_sn_manual_list(list_input):
         return [], f"Ada SN yang dobel: {', '.join(duplikat)}"
 
     return list_sn, None
+
+
+def parse_sn_upload_file(uploaded_file):
+    """
+    Membaca file .txt berisi SN, satu SN per baris.
+    Maksimal 100 baris SN per file.
+    Mengembalikan tuple (list_sn, pesan_error).
+    Baris kosong diabaikan.
+    """
+    if uploaded_file is None:
+        return [], None
+
+    try:
+        raw = uploaded_file.getvalue()
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = raw.decode("utf-8")
+    except Exception as e:
+        return [], f"File TXT tidak dapat dibaca: {e}"
+
+    list_sn = [line.strip() for line in text.splitlines() if line.strip()]
+
+    if len(list_sn) > 100:
+        return [], "File TXT maksimal berisi 100 baris SN."
+
+    return validate_sn_manual_list(list_sn)
 
 
 def tambah(kode):
@@ -1365,6 +1395,7 @@ if st.session_state.get("_do_reset_qty"):
     st.session_state.sn_input = {}
     st.session_state.sn_mode = {}
     st.session_state.sn_manual = {}
+    st.session_state.sn_upload = {}
 
 st.divider()
 
@@ -1711,6 +1742,7 @@ if detail_pesanan:
 
             MODE_BERURUTAN = "SN Berurutan"
             MODE_ACAK = "SN Acak"
+            MODE_UPLOAD = "SN Upload.txt"
 
             def render_sn_preview_box(container_key, list_sn):
                 """
@@ -1766,10 +1798,17 @@ if detail_pesanan:
                         unsafe_allow_html=True,
                     )
 
+                    mode_options = [MODE_BERURUTAN, MODE_ACAK, MODE_UPLOAD]
+
+                    # Jika mode lama tersimpan tetapi sudah tidak ada di opsi,
+                    # kembalikan ke mode pertama agar radio tetap valid.
+                    if st.session_state.sn_mode[kode] not in mode_options:
+                        st.session_state.sn_mode[kode] = MODE_BERURUTAN
+
                     mode_terpilih = st.radio(
                         "Mode Input SN",
-                        [MODE_BERURUTAN, MODE_ACAK],
-                        index=[MODE_BERURUTAN, MODE_ACAK].index(
+                        mode_options,
+                        index=mode_options.index(
                             st.session_state.sn_mode[kode]
                         ),
                         key=f"sn_mode_{kode}",
@@ -1838,7 +1877,7 @@ if detail_pesanan:
                             if item_valid:
                                 item["sn_list"] = list_sn
 
-                    else:
+                    elif mode_terpilih == MODE_ACAK:
                         # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst),
                         # dirender dalam grid 2 kolom + box scrollable supaya
                         # kompak dan tidak makan banyak ruang vertikal walau
@@ -1902,15 +1941,74 @@ if detail_pesanan:
 
                             item["sn_list"] = list_sn
 
+                    else:
+                        # Mode SN Upload.txt: satu file TXT untuk SATU produk.
+                        # Isi file harus 1 SN per baris dan maksimal 100 baris.
+                        st.caption(
+                            f"Upload 1 file .txt untuk {qty} SN "
+                            f"(maksimal 100 baris)"
+                        )
+
+                        uploaded_sn_file = st.file_uploader(
+                            "File SN (.txt)",
+                            type=["txt"],
+                            accept_multiple_files=False,
+                            key=f"sn_upload_file_{kode}",
+                            help=(
+                                "Satu file untuk produk ini. "
+                                "Tulis 1 SN pada setiap baris. "
+                                "Maksimal 100 baris."
+                            ),
+                        )
+
+                        if uploaded_sn_file is None:
+                            st.session_state.sn_upload[kode] = []
+                        else:
+                            list_upload, upload_error = parse_sn_upload_file(
+                                uploaded_sn_file
+                            )
+
+                            if upload_error:
+                                st.session_state.sn_upload[kode] = []
+                                st.error(upload_error)
+                            elif not list_upload:
+                                st.session_state.sn_upload[kode] = []
+                            else:
+                                st.session_state.sn_upload[kode] = list_upload
+                                jumlah_upload = len(list_upload)
+                                item_valid = jumlah_upload == qty
+
+                                if item_valid:
+                                    label_preview = (
+                                        f"✅ {jumlah_upload} dari {qty} SN sesuai qty"
+                                    )
+                                else:
+                                    label_preview = (
+                                        f"❌ {jumlah_upload} dari {qty} SN — "
+                                        f"{'kurang' if jumlah_upload < qty else 'lebih'} "
+                                        f"{abs(jumlah_upload - qty)}"
+                                    )
+
+                                with st.expander(
+                                    label_preview,
+                                    expanded=False,
+                                ):
+                                    render_sn_preview_box(
+                                        f"snpreview-upload-{kode}",
+                                        list_upload,
+                                    )
+
+                                if item_valid:
+                                    item["sn_list"] = list_upload
+
                 # ----------------------------------------------------------
                 # Validasi akhir per item — dihitung independen dari mode
                 # mana yang SEDANG TAMPIL di radio, langsung dari data
-                # tersimpan di session_state untuk KEDUA mode:
+                # tersimpan di session_state untuk KETIGA mode:
                 #
-                # 1) Outlet cukup mengisi SALAH SATU dari 2 opsi (SN
-                #    Berurutan ATAU SN Acak) — order tetap valid walau
-                #    radio sedang menampilkan mode yang lain.
-                # 2) Kalau KEDUA opsi ternyata terisi lengkap & sesuai
+                # 1) Outlet cukup mengisi SALAH SATU dari 3 opsi (SN
+                #    Berurutan, SN Acak, atau SN Upload.txt).
+                # 2) Kalau lebih dari satu opsi ternyata terisi lengkap & sesuai
                 #    qty di saat bersamaan, item ini dianggap TIDAK valid
                 #    dan outlet diberi peringatan untuk memilih salah
                 #    satu saja (supaya tidak ambigu SN mana yang mau
@@ -1936,17 +2034,30 @@ if detail_pesanan:
                     and len(list_acak) == qty
                 )
 
-                if valid_urut and valid_acak:
+                list_upload, err_upload = validate_sn_manual_list(
+                    st.session_state.sn_upload.get(kode, [])
+                )
+                valid_upload = (
+                    not err_upload
+                    and bool(list_upload)
+                    and len(list_upload) == qty
+                    and len(list_upload) <= 100
+                )
+
+                mode_valid_count = sum(
+                    [valid_urut, valid_acak, valid_upload]
+                )
+
+                if mode_valid_count > 1:
                     item_valid = False
                     item["sn_list"] = []
                     item_konflik.append(item["produk"])
 
                     st.warning(
-                        "⚠️ SN Berurutan **dan** SN Acak sama-sama sudah "
-                        "terisi lengkap untuk produk ini. Pesanan hanya "
-                        "bisa dikirim jika memilih **salah satu** "
-                        "opsi saja — kosongkan salah satu mode input SN "
-                        "di atas sebelum mengirim."
+                        "⚠️ Lebih dari satu opsi input SN sudah terisi lengkap "
+                        "untuk produk ini. Pesanan hanya bisa dikirim jika "
+                        "memilih **salah satu** opsi saja — kosongkan opsi SN "
+                        "lain yang tidak digunakan sebelum mengirim."
                     )
 
                 elif valid_urut:
@@ -1956,6 +2067,10 @@ if detail_pesanan:
                 elif valid_acak:
                     item_valid = True
                     item["sn_list"] = list_acak
+
+                elif valid_upload:
+                    item_valid = True
+                    item["sn_list"] = list_upload
 
                 else:
                     item_valid = False
@@ -1968,17 +2083,18 @@ if detail_pesanan:
             if not sn_semua_valid:
                 if item_konflik:
                     st.warning(
-                        "Produk berikut terisi SN di **kedua mode** "
-                        "(Berurutan & Acak) sekaligus: "
+                        "Produk berikut terisi SN di lebih dari satu mode "
+                        "(Berurutan, Acak, atau Upload.txt) sekaligus: "
                         + ", ".join(item_konflik)
                         + ". Pilih salah satu mode saja untuk tiap produk "
                         "tersebut sebelum mengirim pesanan."
                     )
                 else:
                     st.warning(
-                        "Lengkapi salah satu dari 2 opsi input SN "
-                        "(SN Berurutan ATAU SN Acak) untuk semua produk "
-                        "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
+                        "Lengkapi salah satu dari 3 opsi input SN "
+                        "(SN Berurutan, SN Acak, atau SN Upload.txt) "
+                        "untuk semua produk. Jumlah SN harus sama dengan qty "
+                        "dan file TXT maksimal 100 baris."
                     )
 
         else:
