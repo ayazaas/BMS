@@ -9,6 +9,7 @@ import io
 import random
 import gspread
 from google.oauth2.service_account import Credentials
+from google.auth.transport.requests import AuthorizedSession
 from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
@@ -95,12 +96,21 @@ header[data-testid="stHeader"] {
     text-align: center !important;
 }
 
+.wg-header-title-group {
+    width: max-content !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    text-align: left !important;
+}
+
 .wg-header-line1 {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
-    width: 100% !important;
+    width: max-content !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
     font-size: 36px !important;
     font-weight: 800 !important;
     line-height: 1.2 !important;
@@ -124,7 +134,8 @@ header[data-testid="stHeader"] {
     line-height: 1.3 !important;
     color: #30323d !important;
     white-space: nowrap !important;
-    text-align: center !important;
+    text-align: left !important;
+    margin: 0 0 0 44px !important;
 }
 
 .wg-header-desc {
@@ -697,6 +708,11 @@ def connect_sheet():
 
     client = gspread.authorize(creds)
 
+    # Sesi Google Drive menggunakan credentials yang sama.
+    # File TXT SN akan disimpan ke Google Drive agar tidak hilang
+    # ketika aplikasi di-deploy ulang/restart.
+    drive_session = AuthorizedSession(creds)
+
     spreadsheet = client.open_by_url(spreadsheet_url)
 
     # ========================================================
@@ -721,7 +737,7 @@ def connect_sheet():
             value_input_option="USER_ENTERED",
         )
 
-    return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status
+    return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status, drive_session
 
 
 try:
@@ -730,6 +746,7 @@ try:
         worksheet_produk_sniper,
         worksheet_produk_matengan,
         worksheet_status,
+        drive_session,
     ) = connect_sheet()
     sheet_ok = True
 
@@ -745,6 +762,114 @@ except Exception as e:
 
     st.exception(e)
     st.stop()
+
+# ============================================================
+# GOOGLE DRIVE — PENYIMPANAN FILE TXT SN
+# ============================================================
+
+def drive_request(session, method, url, **kwargs):
+    """Request Google Drive API dengan error yang lebih informatif."""
+    response = session.request(method, url, timeout=60, **kwargs)
+    if not response.ok:
+        try:
+            detail = response.json().get("error", {}).get("message", response.text)
+        except Exception:
+            detail = response.text
+        raise RuntimeError(f"Google Drive API error: {detail}")
+    return response
+
+
+def get_or_create_drive_folder(session, folder_name="Toko WG - SN Upload"):
+    """Cari folder arsip SN; jika belum ada, buat folder baru."""
+    base_url = "https://www.googleapis.com/drive/v3/files"
+    query = (
+        "name = '" + folder_name.replace("'", "\\'") + "' "
+        "and mimeType = 'application/vnd.google-apps.folder' "
+        "and trashed = false"
+    )
+
+    response = drive_request(
+        session,
+        "GET",
+        base_url,
+        params={"q": query, "spaces": "drive", "fields": "files(id,name)"},
+    )
+    files = response.json().get("files", [])
+
+    if files:
+        return files[0]["id"]
+
+    response = drive_request(
+        session,
+        "POST",
+        base_url,
+        json={
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+        },
+        params={"fields": "id,name"},
+    )
+    return response.json()["id"]
+
+
+def upload_sn_txt_to_drive(session, order_id, produk, file_name, file_bytes):
+    """Upload file TXT SN ke Google Drive dan kembalikan URL file."""
+    import re
+
+    folder_id = get_or_create_drive_folder(session)
+
+    safe_produk = re.sub(r"[^A-Za-z0-9._-]+", "_", str(produk)).strip("._")
+    safe_produk = safe_produk or "produk"
+    extension = ".txt" if not str(file_name).lower().endswith(".txt") else ""
+    final_name = f"{order_id}_{safe_produk}{extension}"
+
+    metadata = {
+        "name": final_name,
+        "parents": [folder_id],
+        "mimeType": "text/plain",
+    }
+
+    # multipart/related: metadata JSON + isi TXT.
+    import uuid
+    boundary = "===============" + uuid.uuid4().hex + "=="
+    body = (
+        f"--{boundary}\r\n"
+        "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+        + json.dumps(metadata, ensure_ascii=False)
+        + "\r\n"
+        f"--{boundary}\r\n"
+        "Content-Type: text/plain\r\n\r\n"
+    ).encode("utf-8") + file_bytes + f"\r\n--{boundary}--".encode("utf-8")
+
+    response = drive_request(
+        session,
+        "POST",
+        "https://www.googleapis.com/upload/drive/v3/files",
+        params={"uploadType": "multipart", "fields": "id,name,webViewLink"},
+        headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+        data=body,
+    )
+
+    data = response.json()
+    file_id = data["id"]
+
+    # Supaya link yang dicatat di Sheets dapat dibuka tanpa perlu
+    # login sebagai service account. Jika kebijakan Google Workspace
+    # melarang akses publik, file tetap tersimpan dan link Drive
+    # internal tetap dikembalikan.
+    try:
+        drive_request(
+            session,
+            "POST",
+            f"https://www.googleapis.com/drive/v3/files/{file_id}/permissions",
+            params={"fields": "id"},
+            json={"type": "anyone", "role": "reader"},
+        )
+    except Exception:
+        pass
+
+    return f"https://drive.google.com/file/d/{file_id}/view"
+
 
 # ============================================================
 # LOAD PRODUK
@@ -804,6 +929,9 @@ if "sn_manual" not in st.session_state:
 # Daftar SN dari file .txt per kode_voucher -> list of str
 if "sn_upload" not in st.session_state:
     st.session_state.sn_upload = {}
+# File TXT upload per kode_voucher: {kode: {"name": str, "data": bytes}}
+if "sn_upload_file_data" not in st.session_state:
+    st.session_state.sn_upload_file_data = {}
 
 
 def _parse_qty(value):
@@ -1314,11 +1442,13 @@ def batalkan_tandai(ws_status, order_id):
 st.markdown(
     """
     <div class="wg-header">
-        <div class="wg-header-line1">
-            <span class="wg-header-icon">🛒</span>
-            <span>TOKO WG</span>
+        <div class="wg-header-title-group">
+            <div class="wg-header-line1">
+                <span class="wg-header-icon">🛒</span>
+                <span>TOKO WG</span>
+            </div>
+            <div class="wg-header-line2">Form Order</div>
         </div>
-        <div class="wg-header-line2">Form Order</div>
         <div class="wg-header-desc">
             Isi data outlet, lalu pilih voucher dan jumlahnya.
         </div>
@@ -1396,6 +1526,7 @@ if st.session_state.get("_do_reset_qty"):
     st.session_state.sn_mode = {}
     st.session_state.sn_manual = {}
     st.session_state.sn_upload = {}
+    st.session_state.sn_upload_file_data = {}
 
 st.divider()
 
@@ -1963,7 +2094,16 @@ if detail_pesanan:
 
                         if uploaded_sn_file is None:
                             st.session_state.sn_upload[kode] = []
+                            st.session_state.sn_upload_file_data.pop(kode, None)
                         else:
+                            # Simpan bytes + nama file di session untuk dipakai
+                            # saat tombol Kirim Pesanan ditekan. File aslinya
+                            # nanti diarsipkan ke Google Drive.
+                            st.session_state.sn_upload_file_data[kode] = {
+                                "name": uploaded_sn_file.name,
+                                "data": uploaded_sn_file.getvalue(),
+                            }
+
                             list_upload, upload_error = parse_sn_upload_file(
                                 uploaded_sn_file
                             )
@@ -2144,9 +2284,39 @@ if st.button(
 
         order_id = buat_order_id()
 
+        # Upload file TXT asli ke Google Drive untuk setiap produk yang
+        # menggunakan mode SN Upload.txt. Satu produk = satu file TXT.
+        file_txt_map = {}
+        try:
+            for item in detail_pesanan:
+                kode = item["kode_voucher"]
+                if st.session_state.sn_mode.get(kode) != "SN Upload.txt":
+                    continue
+
+                file_data = st.session_state.sn_upload_file_data.get(kode)
+                if not file_data:
+                    raise ValueError(
+                        f"File TXT untuk produk {item['produk']} tidak ditemukan."
+                    )
+
+                file_txt_map[kode] = upload_sn_txt_to_drive(
+                    drive_session,
+                    order_id,
+                    item["produk"],
+                    file_data["name"],
+                    file_data["data"],
+                )
+        except Exception as e:
+            st.error(
+                "Pesanan belum disimpan karena file TXT SN gagal diunggah "
+                f"ke Google Drive: {e}"
+            )
+            st.stop()
+
         # Opsi B: 1 baris per SN. Tiap item di-"pecah" jadi sebanyak
         # SN yang sudah digenerate (list_sn), supaya tiap voucher
         # individual bisa dilacak lewat kolom "sn" masing-masing.
+        # Kolom terakhir = file_txt, berisi link file TXT di Google Drive.
         rows_to_append = [
             [
                 timestamp,
@@ -2162,12 +2332,18 @@ if st.button(
                 item["subtotal"],
                 total_harga,
                 sn_sebagai_teks(sn),
+                file_txt_map.get(item["kode_voucher"], ""),
             ]
             for item in detail_pesanan
             for sn in item["sn_list"]
         ]
 
         try:
+            # Pastikan header sheet memiliki kolom file_txt.
+            header_values = worksheet.row_values(1)
+            if "file_txt" not in [str(h).strip() for h in header_values]:
+                worksheet.update_cell(1, len(header_values) + 1, "file_txt")
+
             hasil_append = worksheet.append_rows(
                 rows_to_append,
                 value_input_option="USER_ENTERED",
