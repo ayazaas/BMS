@@ -1211,32 +1211,6 @@ st.caption(
 )
 
 # ============================================================
-# HITUNG TOTAL
-# ============================================================
-
-total_harga = 0
-detail_pesanan = []
-
-for _, row in produk_df.iterrows():
-    kode = row["kode_voucher"]
-    qty = st.session_state.qty.get(kode, 0)
-
-    if qty > 0:
-        subtotal = qty * row["harga"]
-        total_harga += subtotal
-
-        detail_pesanan.append(
-            {
-                "provider": row["provider"],
-                "kode_voucher": kode,
-                "produk": row["produk"],
-                "harga_satuan": row["harga"],
-                "qty": qty,
-                "subtotal": subtotal,
-            }
-        )
-
-# ============================================================
 # DAFTAR PRODUK
 # ============================================================
 
@@ -1328,6 +1302,37 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     disabled=(harga == 0),
                                     use_container_width=True,
                                 )
+
+# ============================================================
+# HITUNG TOTAL
+# Sengaja dihitung SETELAH loop render produk di atas (bukan
+# sebelumnya), supaya kalau user baru saja ngetik manual di kotak
+# qty, st.session_state.qty yang dipakai di sini sudah versi
+# ter-update — jadi Ringkasan Pesanan langsung ikut berubah di
+# render yang sama, tanpa perlu rerun kedua.
+# ============================================================
+
+total_harga = 0
+detail_pesanan = []
+
+for _, row in produk_df.iterrows():
+    kode = row["kode_voucher"]
+    qty = st.session_state.qty.get(kode, 0)
+
+    if qty > 0:
+        subtotal = qty * row["harga"]
+        total_harga += subtotal
+
+        detail_pesanan.append(
+            {
+                "provider": row["provider"],
+                "kode_voucher": kode,
+                "produk": row["produk"],
+                "harga_satuan": row["harga"],
+                "qty": qty,
+                "subtotal": subtotal,
+            }
+        )
 
 # ============================================================
 # KONTROL PAGINATION (Sebelumnya / Nomor Halaman / Selanjutnya)
@@ -1460,97 +1465,102 @@ if detail_pesanan:
             hide_index=True,
         )
 
-        st.markdown("---")
-        st.markdown("**Input Serial Number (SN)**")
-        st.caption(
-            "Cek SN pada struk/hasil transaksi H2H setelah voucher "
-            "berhasil diproses, lalu masukkan SN pertama dan SN "
-            "terakhir untuk tiap produk di bawah ini."
-        )
+        # Input SN hanya relevan untuk kategori Sniper. Untuk Matengan,
+        # tiap item tetap disimpan 1 baris (tanpa SN) supaya alur
+        # simpan-ke-sheet di bawah tetap konsisten.
+        if kategori_terpilih == "Sniper":
+            st.markdown("---")
+            st.markdown("**Input Serial Number (SN)**")
 
-        semua_item_valid = []
+            semua_item_valid = []
 
-        for item in detail_pesanan:
-            kode = item["kode_voucher"]
-            qty = item["qty"]
+            for item in detail_pesanan:
+                kode = item["kode_voucher"]
+                qty = item["qty"]
 
-            if kode not in st.session_state.sn_input:
+                if kode not in st.session_state.sn_input:
+                    st.session_state.sn_input[kode] = {
+                        "awal": "",
+                        "akhir": "",
+                    }
+
+                st.markdown(
+                    f"*{item['produk']}* — qty {qty}"
+                )
+
+                c_sn1, c_sn2 = st.columns(2)
+
+                with c_sn1:
+                    sn_awal = st.text_input(
+                        "SN Awal",
+                        value=st.session_state.sn_input[kode]["awal"],
+                        key=f"sn_awal_{kode}",
+                    )
+
+                with c_sn2:
+                    sn_akhir = st.text_input(
+                        "SN Akhir",
+                        value=st.session_state.sn_input[kode]["akhir"],
+                        key=f"sn_akhir_{kode}",
+                    )
+
                 st.session_state.sn_input[kode] = {
-                    "awal": "",
-                    "akhir": "",
+                    "awal": sn_awal,
+                    "akhir": sn_akhir,
                 }
 
-            st.markdown(
-                f"*{item['produk']}* — qty {qty}"
-            )
+                list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
 
-            c_sn1, c_sn2 = st.columns(2)
+                item_valid = False
+                item["sn_list"] = []
 
-            with c_sn1:
-                sn_awal = st.text_input(
-                    "SN Awal",
-                    value=st.session_state.sn_input[kode]["awal"],
-                    key=f"sn_awal_{kode}",
-                    placeholder="Contoh: 1234567890123450",
-                )
+                if sn_error:
+                    st.error(sn_error)
 
-            with c_sn2:
-                sn_akhir = st.text_input(
-                    "SN Akhir",
-                    value=st.session_state.sn_input[kode]["akhir"],
-                    key=f"sn_akhir_{kode}",
-                    placeholder="Contoh: 1234567890123457",
-                )
+                elif not sn_awal or not sn_akhir:
+                    pass
 
-            st.session_state.sn_input[kode] = {
-                "awal": sn_awal,
-                "akhir": sn_akhir,
-            }
-
-            list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
-
-            item_valid = False
-            item["sn_list"] = []
-
-            if sn_error:
-                st.error(sn_error)
-
-            elif not sn_awal or not sn_akhir:
-                st.caption("⏳ Belum diisi.")
-
-            else:
-                jumlah_generate = len(list_sn)
-                item_valid = jumlah_generate == qty
-
-                if item_valid:
-                    label_preview = (
-                        f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
-                    )
                 else:
-                    label_preview = (
-                        f"❌ {jumlah_generate} dari {qty} SN — "
-                        f"{'kurang' if jumlah_generate < qty else 'lebih'} "
-                        f"{abs(jumlah_generate - qty)}"
-                    )
+                    jumlah_generate = len(list_sn)
+                    item_valid = jumlah_generate == qty
 
-                with st.expander(label_preview, expanded=False):
-                    for idx, sn in enumerate(list_sn, start=1):
-                        st.text(f"{idx}. {sn}")
+                    if item_valid:
+                        label_preview = (
+                            f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
+                        )
+                    else:
+                        label_preview = (
+                            f"❌ {jumlah_generate} dari {qty} SN — "
+                            f"{'kurang' if jumlah_generate < qty else 'lebih'} "
+                            f"{abs(jumlah_generate - qty)}"
+                        )
 
-                if item_valid:
-                    item["sn_list"] = list_sn
+                    with st.expander(label_preview, expanded=False):
+                        for idx, sn in enumerate(list_sn, start=1):
+                            st.text(f"{idx}. {sn}")
 
-            semua_item_valid.append(item_valid)
+                    if item_valid:
+                        item["sn_list"] = list_sn
 
-            st.markdown("")
+                semua_item_valid.append(item_valid)
 
-        sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
+                st.markdown("")
 
-        if not sn_semua_valid:
-            st.warning(
-                "Lengkapi SN Awal & SN Akhir untuk semua produk "
-                "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
-            )
+            sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
+
+            if not sn_semua_valid:
+                st.warning(
+                    "Lengkapi SN Awal & SN Akhir untuk semua produk "
+                    "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
+                )
+
+        else:
+            # Matengan: tidak perlu input SN, tiap item disimpan
+            # sebagai 1 baris dengan kolom sn kosong.
+            for item in detail_pesanan:
+                item["sn_list"] = [""]
+
+            sn_semua_valid = True
 
     col_total1, col_total2 = st.columns([2, 1])
 
