@@ -1914,7 +1914,7 @@ if detail_pesanan:
                     st.warning(
                         "⚠️ SN Berurutan **dan** SN Acak sama-sama sudah "
                         "terisi lengkap untuk produk ini. Pesanan hanya "
-                        "bisa dikirim kalau kamu memilih **salah satu** "
+                        "bisa dikirim jika memilih **salah satu** "
                         "opsi saja — kosongkan salah satu mode input SN "
                         "di atas sebelum mengirim."
                     )
