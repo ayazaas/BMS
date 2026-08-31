@@ -1845,13 +1845,38 @@ if detail_pesanan:
 
                             item["sn_list"] = list_sn
 
+                # ----------------------------------------------------------
+                # Fallback lintas-mode: jika mode yang SEDANG DITAMPILKAN
+                # belum lengkap/valid, cek juga data yang sudah diisi di
+                # mode LAINNYA (tersimpan di session_state walau tidak
+                # sedang ditampilkan). Dengan begini, outlet cukup mengisi
+                # SALAH SATU dari 2 opsi (SN Berurutan ATAU SN Acak) —
+                # tidak wajib mengisi mode yang sedang aktif di radio saja.
+                # ----------------------------------------------------------
+                if not item_valid:
+                    if mode_terpilih == MODE_BERURUTAN:
+                        list_sn_lain, err_lain = validate_sn_manual_list(
+                            st.session_state.sn_manual.get(kode, [])
+                        )
+                    else:
+                        data_awal_akhir = st.session_state.sn_input.get(kode, {})
+                        list_sn_lain, err_lain = generate_sn_list(
+                            data_awal_akhir.get("awal", ""),
+                            data_awal_akhir.get("akhir", ""),
+                        )
+
+                    if not err_lain and list_sn_lain and len(list_sn_lain) == qty:
+                        item_valid = True
+                        item["sn_list"] = list_sn_lain
+
                 semua_item_valid.append(item_valid)
 
             sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
 
             if not sn_semua_valid:
                 st.warning(
-                    "Lengkapi SN Awal & SN Akhir untuk semua produk "
+                    "Lengkapi salah satu dari 2 opsi input SN "
+                    "(SN Berurutan ATAU SN Acak) untuk semua produk "
                     "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
                 )
 
