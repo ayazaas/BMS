@@ -627,7 +627,7 @@ if "sn_input" not in st.session_state:
 # Mode input SN per kode_voucher: "SN Berurutan" atau "SN Acak"
 if "sn_mode" not in st.session_state:
     st.session_state.sn_mode = {}
-# Isi textarea mode "SN Acak" per kode_voucher
+# Isi kotak-kotak SN mode "SN Acak" per kode_voucher -> list of str
 if "sn_manual" not in st.session_state:
     st.session_state.sn_manual = {}
 
@@ -677,22 +677,17 @@ def generate_sn_list(sn_awal, sn_akhir):
     return list_sn, None
 
 
-def parse_sn_manual(text):
+def validate_sn_manual_list(list_input):
     """
-    Parse input SN mode 'SN Acak' — satu SN per baris (bebas ketik
-    manual atau tempel dari struk). Baris kosong otomatis di-skip.
-    Mengembalikan tuple (list_sn, pesan_error). Kalau ada SN yang
-    sama diketik lebih dari sekali, dianggap error (kemungkinan
-    besar typo/salah tempel, bukan disengaja).
+    Validasi input SN mode 'SN Acak' — satu kotak per SN (SN #1, #2, dst).
+    Mengembalikan tuple (list_sn, pesan_error).
+    - Kalau masih ada kotak yang kosong -> ([], None), belum dianggap error.
+    - Kalau semua kotak terisi tapi ada yang sama (dobel) -> pesan error.
+    - Kalau semua terisi dan unik -> list_sn dikembalikan.
     """
-    if not (text or "").strip():
-        return [], None
+    list_sn = [(s or "").strip() for s in list_input]
 
-    list_sn = [
-        baris.strip() for baris in text.splitlines() if baris.strip()
-    ]
-
-    if not list_sn:
+    if any(not s for s in list_sn):
         return [], None
 
     counter = {}
@@ -1527,7 +1522,17 @@ if detail_pesanan:
                 if kode not in st.session_state.sn_mode:
                     st.session_state.sn_mode[kode] = MODE_BERURUTAN
                 if kode not in st.session_state.sn_manual:
-                    st.session_state.sn_manual[kode] = ""
+                    st.session_state.sn_manual[kode] = [""] * qty
+                elif len(st.session_state.sn_manual[kode]) != qty:
+                    # Qty berubah (user ubah jumlah) -> sesuaikan jumlah
+                    # kotak, tetap pertahankan SN yang sudah diketik.
+                    lama = st.session_state.sn_manual[kode]
+                    if len(lama) < qty:
+                        st.session_state.sn_manual[kode] = lama + [""] * (
+                            qty - len(lama)
+                        )
+                    else:
+                        st.session_state.sn_manual[kode] = lama[:qty]
 
                 st.markdown(
                     f"*{item['produk']}* — qty {qty}"
@@ -1551,7 +1556,7 @@ if detail_pesanan:
                         "awal": "",
                         "akhir": "",
                     }
-                    st.session_state.sn_manual[kode] = ""
+                    st.session_state.sn_manual[kode] = [""] * qty
                     st.session_state.sn_mode[kode] = mode_terpilih
 
                 item_valid = False
@@ -1610,53 +1615,45 @@ if detail_pesanan:
                             item["sn_list"] = list_sn
 
                 else:
-                    # Mode SN Acak: satu textarea, SN dipisah per baris.
-                    tinggi_area = max(68, min(240, 34 * qty))
-
-                    sn_manual_text = st.text_area(
-                        "SN Acak",
-                        value=st.session_state.sn_manual[kode],
-                        key=f"sn_manual_{kode}",
-                        placeholder=(
-                            f"Tempel/ketik {qty} SN di sini, "
-                            f"satu SN per baris"
-                        ),
-                        height=tinggi_area,
-                        label_visibility="collapsed",
+                    # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst).
+                    st.markdown(
+                        f"Masukkan SN satu per satu ({qty} dibutuhkan):"
                     )
 
-                    st.session_state.sn_manual[kode] = sn_manual_text
+                    nilai_manual = []
 
-                    list_sn, sn_error = parse_sn_manual(sn_manual_text)
+                    for idx in range(qty):
+                        nilai_kotak = st.text_input(
+                            f"SN #{idx + 1}",
+                            value=st.session_state.sn_manual[kode][idx],
+                            key=f"sn_manual_{kode}_{idx}",
+                        )
+                        nilai_manual.append(nilai_kotak)
+
+                    st.session_state.sn_manual[kode] = nilai_manual
+
+                    list_sn, sn_error = validate_sn_manual_list(nilai_manual)
 
                     if sn_error:
                         st.error(sn_error)
 
-                    elif not sn_manual_text.strip():
+                    elif not list_sn:
                         pass
 
                     else:
                         jumlah_terisi = len(list_sn)
                         item_valid = jumlah_terisi == qty
 
-                        if item_valid:
-                            label_preview = (
-                                f"✅ {jumlah_terisi} dari {qty} SN terisi "
-                                f"(tidak ada duplikat)"
-                            )
-                        else:
-                            label_preview = (
-                                f"❌ {jumlah_terisi} dari {qty} SN — "
-                                f"{'kurang' if jumlah_terisi < qty else 'lebih'} "
-                                f"{abs(jumlah_terisi - qty)}"
-                            )
+                        label_preview = (
+                            f"✅ {jumlah_terisi} dari {qty} SN terisi "
+                            f"(tidak ada duplikat)"
+                        )
 
                         with st.expander(label_preview, expanded=False):
                             for idx, sn in enumerate(list_sn, start=1):
                                 st.text(f"{idx}. {sn}")
 
-                        if item_valid:
-                            item["sn_list"] = list_sn
+                        item["sn_list"] = list_sn
 
                 semua_item_valid.append(item_valid)
 
