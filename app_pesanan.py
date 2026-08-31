@@ -29,8 +29,7 @@ def now_wib():
 st.set_page_config(
     page_title="Form Pesanan Outlet",
     page_icon="🛒",
-    layout="centered",
-)
+    layout="centered")
 
                                   
 
@@ -657,8 +656,7 @@ div[class*="st-key-snpreview-"] {
 </style>
 
 """,
-    unsafe_allow_javascript=True,
-)
+    unsafe_allow_javascript=True)
 
                        
 
@@ -681,8 +679,7 @@ def connect_sheet():
                                                               
     creds = Credentials.from_service_account_info(
         gcp_service_account,
-        scopes=scopes,
-    )
+        scopes=scopes)
 
     client = gspread.authorize(creds)
 
@@ -701,13 +698,11 @@ def connect_sheet():
         ws_status = spreadsheet.add_worksheet(
             title=NAMA_WORKSHEET_STATUS,
             rows=1000,
-            cols=3,
-        )
+            cols=3)
 
         ws_status.append_row(
             ["order_id", "status_kirim", "waktu_ditandai"],
-            value_input_option="USER_ENTERED",
-        )
+            value_input_option="USER_ENTERED")
 
     return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status
 
@@ -716,8 +711,7 @@ try:
         worksheet,
         worksheet_produk_sniper,
         worksheet_produk_matengan,
-        worksheet_status,
-    ) = connect_sheet()
+        worksheet_status) = connect_sheet()
     sheet_ok = True
 
 except Exception as e:
@@ -866,7 +860,7 @@ def parse_sn_upload_file(uploaded_file):
 
         MAX_TXT_SIZE = 10 * 1024 * 1024         
         if len(raw) > MAX_TXT_SIZE:
-            return [], "Ukuran file TXT maksimal 10 MB."
+            return [], "Ukuran file TXT maksimal."
 
         try:
             text = raw.decode("utf-8-sig")
@@ -942,8 +936,7 @@ def build_nota_wa_text(
     alamat_pengiriman,
     timestamp,
     detail_pesanan,
-    total_harga,
-):
+    total_harga):
     garis = "━" * 20
 
     baris = [
@@ -994,8 +987,7 @@ def build_konfirmasi_cs_text(
     alamat_pengiriman,
     timestamp,
     detail_pesanan,
-    total_harga,
-):
+    total_harga):
     """
     Template pesan WhatsApp dari OUTLET ke CS/Admin untuk
     konfirmasi pesanan yang baru saja dibuat outlet tersebut.
@@ -1047,8 +1039,7 @@ def build_receipt_lines(
     alamat_pengiriman,
     timestamp,
     detail_pesanan,
-    total_harga,
-):
+    total_harga):
     lines = [
         ("title", "STRUK PEMESANAN OUTLET TOKO WG"),
         ("sep", ""),
@@ -1067,16 +1058,14 @@ def build_receipt_lines(
         lines.append(
             (
                 "item",
-                f"[{item['provider']}] {item['produk']}",
-            )
+                f"[{item['provider']}] {item['produk']}")
         )
         lines.append(
             (
                 "sub",
                 f"{item['qty']} x "
                 f"{format_rupiah(item['harga_satuan'])} = "
-                f"{format_rupiah(item['subtotal'])}",
-            )
+                f"{format_rupiah(item['subtotal'])}")
         )
 
     lines.append(("sep", ""))
@@ -1110,8 +1099,7 @@ def build_receipt_image(
     alamat_pengiriman,
     timestamp,
     detail_pesanan,
-    total_harga,
-):
+    total_harga):
     lines = build_receipt_lines(
         order_id,
         nama_outlet,
@@ -1119,8 +1107,7 @@ def build_receipt_image(
         alamat_pengiriman,
         timestamp,
         detail_pesanan,
-        total_harga,
-    )
+        total_harga)
 
     width = 480
     padding = 20
@@ -1155,53 +1142,46 @@ def build_receipt_image(
                     (width - padding, y + 5),
                 ],
                 fill=(180, 180, 180),
-                width=1,
-            )
+                width=1)
             y += 10
 
         elif tipe == "title":
             bbox = draw.textbbox(
                 (0, 0),
                 teks,
-                font=font_title,
-            )
+                font=font_title)
             tw = bbox[2] - bbox[0]
             draw.text(
                 ((width - tw) / 2, y),
                 teks,
                 fill="black",
-                font=font_title,
-            )
+                font=font_title)
             y += 28
 
         elif tipe == "total":
             bbox = draw.textbbox(
                 (0, 0),
                 teks,
-                font=font_total,
-            )
+                font=font_total)
             tw = bbox[2] - bbox[0]
             draw.text(
                 (width - padding - tw, y),
                 teks,
                 fill="black",
-                font=font_total,
-            )
+                font=font_total)
             y += 20
 
         elif tipe == "footer":
             bbox = draw.textbbox(
                 (0, 0),
                 teks,
-                font=font_normal,
-            )
+                font=font_normal)
             tw = bbox[2] - bbox[0]
             draw.text(
                 ((width - tw) / 2, y),
                 teks,
                 fill=(90, 90, 90),
-                font=font_normal,
-            )
+                font=font_normal)
             y += line_height
 
         elif tipe == "sub":
@@ -1209,8 +1189,7 @@ def build_receipt_image(
                 (padding + 12, y),
                 teks,
                 fill=(90, 90, 90),
-                font=font_normal,
-            )
+                font=font_normal)
             y += line_height
 
         else:
@@ -1218,8 +1197,7 @@ def build_receipt_image(
                 (padding, y),
                 teks,
                 fill="black",
-                font=font_normal,
-            )
+                font=font_normal)
             y += line_height
 
     buf = io.BytesIO()
@@ -1256,8 +1234,7 @@ def tandai_terkirim(ws_status, order_id):
             "TRUE",
             now_wib().strftime("%Y-%m-%d %H:%M:%S"),
         ],
-        value_input_option="USER_ENTERED",
-    )
+        value_input_option="USER_ENTERED")
 
 def batalkan_tandai(ws_status, order_id):
     """Undo: hapus baris status_kirim untuk order_id."""
@@ -1285,8 +1262,7 @@ st.markdown(
         </div>
     </div>
     """,
-    unsafe_allow_html=True,
-)
+    unsafe_allow_html=True)
 
              
 
@@ -1297,19 +1273,16 @@ col1, col2 = st.columns(2)
 with col1:
     nama_outlet = st.text_input(
         "Nama Outlet",
-        placeholder="Konter ABC Cell",
-    )
+        placeholder="Konter ABC Cell")
 
 with col2:
     no_wa = st.text_input(
         "No. WhatsApp",
-        placeholder="08123456789",
-    )
+        placeholder="08123456789")
 
 alamat_pengiriman = st.text_input(
     "Alamat Pengiriman",
-    placeholder="Jl. Ahmad Yani No. 2",
-)
+    placeholder="Jl. Ahmad Yani No. 2")
 
 st.caption("Alamat pengiriman hanya untuk transaksi Fisik Matengan")
 st.divider()
@@ -1321,8 +1294,7 @@ st.subheader("Pilih Kategori")
 kategori_terpilih = st.selectbox(
     "Filter Kategori",
     ["Sniper", "Matengan"],
-    label_visibility="collapsed",
-)
+    label_visibility="collapsed")
 
 if kategori_terpilih == "Sniper":
     worksheet_produk_aktif = worksheet_produk_sniper
@@ -1366,13 +1338,11 @@ daftar_provider = sorted(
 provider_terpilih = st.selectbox(
     "Filter Provider",
     daftar_provider,
-    label_visibility="collapsed",
-)
+    label_visibility="collapsed")
 
 keyword = st.text_input(
     "Cari produk",
-    placeholder="Contoh: 5GB",
-)
+    placeholder="Contoh: 5GB")
 
 produk_tampil = produk_df.copy()
 
@@ -1449,8 +1419,7 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     <div class="wg-prod-name">{nama}</div>
                     <div class="wg-prod-provider">{provider}</div>
                     """,
-                    unsafe_allow_html=True,
-                )
+                    unsafe_allow_html=True)
 
                 price_row = st.container(key=f"pricerow-{kode}")
 
@@ -1458,8 +1427,7 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                     c_harga, c_qty_group = st.columns(
                         [1, 1.35],
                         gap="small",
-                        vertical_alignment="center",
-                    )
+                        vertical_alignment="center")
 
                     with c_harga:
                         if harga > 0:
@@ -1474,8 +1442,7 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                             c_minus, c_qty, c_plus = st.columns(
                                 [1, 1.6, 1],
                                 gap="small",
-                                vertical_alignment="center",
-                            )
+                                vertical_alignment="center")
 
                             with c_minus:
                                 st.container(key=f"qty_minus_{kode}")
@@ -1483,10 +1450,9 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     "−",
                                     key=f"qty_minus_{kode}_btn",
                                     on_click=kurang,
-                                    args=(kode,),
+                                    args=(kode),
                                     disabled=(harga == 0),
-                                    use_container_width=True,
-                                )
+                                    use_container_width=True)
 
                             with c_qty:
 
@@ -1497,8 +1463,7 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     value=str(qty_sekarang),
                                     disabled=(harga == 0),
                                     label_visibility="collapsed",
-                                    placeholder="0",
-                                )
+                                    placeholder="0")
 
                                 nilai_ketik = _parse_qty(teks_qty)
                                 if nilai_ketik != st.session_state.qty.get(kode, 0):
@@ -1510,10 +1475,9 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     "+",
                                     key=f"qty_plus_{kode}_btn",
                                     on_click=tambah,
-                                    args=(kode,),
+                                    args=(kode),
                                     disabled=(harga == 0),
-                                    use_container_width=True,
-                                )
+                                    use_container_width=True)
 
               
 
@@ -1589,8 +1553,7 @@ if total_halaman > 1:
         kolom_pagination = st.columns(
             rasio_kolom,
             gap="small",
-            vertical_alignment="center",
-        )
+            vertical_alignment="center")
 
         col_prev = kolom_pagination[0]
         col_next = kolom_pagination[-1]
@@ -1601,8 +1564,7 @@ if total_halaman > 1:
                 "◀",
                 use_container_width=True,
                 disabled=(halaman_sekarang <= 1),
-                key="btn_halaman_prev",
-            ):
+                key="btn_halaman_prev"):
                 st.session_state["halaman_produk"] = halaman_sekarang - 1
                 st.rerun()
 
@@ -1611,8 +1573,7 @@ if total_halaman > 1:
                 if nomor is None:
                     st.markdown(
                         "<div class='wg-pagination-ellipsis'>···</div>",
-                        unsafe_allow_html=True,
-                    )
+                        unsafe_allow_html=True)
                 else:
                     if st.button(
                         str(nomor),
@@ -1622,8 +1583,7 @@ if total_halaman > 1:
                             "primary"
                             if nomor == halaman_sekarang
                             else "secondary"
-                        ),
-                    ):
+                        )):
                         st.session_state["halaman_produk"] = nomor
                         st.rerun()
 
@@ -1632,8 +1592,7 @@ if total_halaman > 1:
                 "▶",
                 use_container_width=True,
                 disabled=(halaman_sekarang >= total_halaman),
-                key="btn_halaman_next",
-            ):
+                key="btn_halaman_next"):
                 st.session_state["halaman_produk"] = halaman_sekarang + 1
                 st.rerun()
 
@@ -1647,8 +1606,7 @@ if detail_pesanan:
     with st.expander(
         f"🧾 Ringkasan pesanan "
         f"({len(detail_pesanan)} item dipilih)",
-        expanded=True,
-    ):
+        expanded=True):
         df_ringkasan = pd.DataFrame(detail_pesanan).drop(
             columns=["provider", "kode_voucher"]
         )
@@ -1664,8 +1622,7 @@ if detail_pesanan:
         st.dataframe(
             df_ringkasan,
             use_container_width=True,
-            hide_index=True,
-        )
+            hide_index=True)
 
                                                                  
                                                    
@@ -1729,8 +1686,7 @@ if detail_pesanan:
                         f'{item["produk"]}'
                         f'<span class="wg-sn-item-qty"> · qty {qty}</span>'
                         f'</div>',
-                        unsafe_allow_html=True,
-                    )
+                        unsafe_allow_html=True)
 
                     mode_options = [MODE_BERURUTAN, MODE_ACAK, MODE_UPLOAD]
 
@@ -1746,8 +1702,7 @@ if detail_pesanan:
                         ),
                         key=f"sn_mode_{kode}",
                         horizontal=True,
-                        label_visibility="collapsed",
-                    )
+                        label_visibility="collapsed")
 
                                                                        
 
@@ -1761,15 +1716,13 @@ if detail_pesanan:
                             sn_awal = st.text_input(
                                 "SN Awal",
                                 value=st.session_state.sn_input[kode]["awal"],
-                                key=f"sn_awal_{kode}",
-                            )
+                                key=f"sn_awal_{kode}")
 
                         with c_sn2:
                             sn_akhir = st.text_input(
                                 "SN Akhir",
                                 value=st.session_state.sn_input[kode]["akhir"],
-                                key=f"sn_akhir_{kode}",
-                            )
+                                key=f"sn_akhir_{kode}")
 
                         st.session_state.sn_input[kode] = {
                             "awal": sn_awal,
@@ -1802,8 +1755,7 @@ if detail_pesanan:
                             with st.expander(label_preview, expanded=False):
                                 render_sn_preview_box(
                                     f"snpreview-{kode}",
-                                    list_sn,
-                                )
+                                    list_sn)
 
                             if item_valid:
                                 item["sn_list"] = list_sn
@@ -1824,16 +1776,14 @@ if detail_pesanan:
                             for i in range(0, qty, 2):
                                 c_sn_a, c_sn_b = st.columns(
                                     2,
-                                    gap="small",
-                                )
+                                    gap="small")
 
                                 with c_sn_a:
                                     idx_a = i
                                     nilai_manual[idx_a] = st.text_input(
                                         f"SN #{idx_a + 1}",
                                         value=st.session_state.sn_manual[kode][idx_a],
-                                        key=f"sn_manual_{kode}_{idx_a}",
-                                    )
+                                        key=f"sn_manual_{kode}_{idx_a}")
 
                                 if i + 1 < qty:
                                     with c_sn_b:
@@ -1841,8 +1791,7 @@ if detail_pesanan:
                                         nilai_manual[idx_b] = st.text_input(
                                             f"SN #{idx_b + 1}",
                                             value=st.session_state.sn_manual[kode][idx_b],
-                                            key=f"sn_manual_{kode}_{idx_b}",
-                                        )
+                                            key=f"sn_manual_{kode}_{idx_b}")
 
                         st.session_state.sn_manual[kode] = nilai_manual
 
@@ -1866,8 +1815,7 @@ if detail_pesanan:
                             with st.expander(label_preview, expanded=False):
                                 render_sn_preview_box(
                                     f"snpreview-acak-{kode}",
-                                    list_sn,
-                                )
+                                    list_sn)
 
                             item["sn_list"] = list_sn
 
@@ -1875,7 +1823,7 @@ if detail_pesanan:
 
                         st.caption(
                             f"Upload 1 file .txt untuk {qty} SN "
-                            f"(maksimal 4000 baris, 10 MB)"
+                            f"(maksimal 4000 baris)"
                         )
 
                         uploaded_sn_file = st.file_uploader(
@@ -1886,9 +1834,8 @@ if detail_pesanan:
                             help=(
                                 "Satu file untuk produk ini. "
                                 "Tulis 1 SN pada setiap baris. "
-                                "Maksimal 4000 baris dan ukuran file 10 MB."
-                            ),
-                        )
+                                "Maksimal 4000 baris dan ukuran file."
+                            ))
 
                         if uploaded_sn_file is None:
                             st.session_state.sn_upload[kode] = []
@@ -1920,12 +1867,10 @@ if detail_pesanan:
 
                                 with st.expander(
                                     label_preview,
-                                    expanded=False,
-                                ):
+                                    expanded=False):
                                     render_sn_preview_box(
                                         f"snpreview-upload-{kode}",
-                                        list_upload,
-                                    )
+                                        list_upload)
 
                                 if item_valid:
                                     item["sn_list"] = list_upload
@@ -1941,8 +1886,7 @@ if detail_pesanan:
                 data_urut = st.session_state.sn_input.get(kode, {})
                 list_urut, err_urut = generate_sn_list(
                     data_urut.get("awal", ""),
-                    data_urut.get("akhir", ""),
-                )
+                    data_urut.get("akhir", ""))
                 valid_urut = (
                     not err_urut
                     and bool(list_urut)
@@ -2033,8 +1977,7 @@ if detail_pesanan:
     with col_total2:
         st.metric(
             "Total Pesanan",
-            format_rupiah(total_harga),
-        )
+            format_rupiah(total_harga))
 
                 
 
@@ -2042,8 +1985,7 @@ if st.button(
     "🧾 Kirim Pesanan",
     type="primary",
     use_container_width=True,
-    disabled=not sheet_ok or not sn_semua_valid,
-):
+    disabled=not sheet_ok or not sn_semua_valid):
     if not nama_outlet or not no_wa:
         st.error(
             "Nama outlet dan No. WhatsApp wajib diisi."
@@ -2090,8 +2032,7 @@ if st.button(
         try:
             hasil_append = worksheet.append_rows(
                 rows_to_append,
-                value_input_option="USER_ENTERED",
-            )
+                value_input_option="USER_ENTERED")
 
                                                                       
 
@@ -2119,8 +2060,7 @@ if st.button(
                 alamat_pengiriman,
                 timestamp,
                 detail_pesanan,
-                total_harga,
-            )
+                total_harga)
 
             nama_file_aman = (
                 nama_outlet.strip().replace(" ", "_")
@@ -2139,8 +2079,7 @@ if st.button(
                 alamat_pengiriman,
                 timestamp_wa,
                 detail_pesanan,
-                total_harga,
-            )
+                total_harga)
 
             st.session_state.last_wa_link = (
                 f"https://wa.me/{nomor_wa_tujuan}"
@@ -2159,8 +2098,7 @@ if st.button(
                     alamat_pengiriman,
                     timestamp_wa,
                     detail_pesanan,
-                    total_harga,
-                )
+                    total_harga)
 
                 nomor_cs_tujuan = format_no_wa(cs_wa_number)
 
@@ -2198,8 +2136,7 @@ if (
         st.link_button(
             "💬 Konfirmasi ke Admin via WhatsApp",
             st.session_state.last_cs_wa_link,
-            use_container_width=True,
-        )
+            use_container_width=True)
     else:
         st.caption(
             "⚠️ Nomor WA CS belum dikonfigurasi "
@@ -2209,8 +2146,7 @@ if (
     st.image(
         st.session_state.last_receipt,
         caption="Preview Struk Pesanan",
-        width=340,
-    )
+        width=340)
 
     dl_col, close_col = st.columns([3, 1])
 
@@ -2220,14 +2156,12 @@ if (
             data=st.session_state.last_receipt,
             file_name=st.session_state.last_receipt_name,
             mime="image/png",
-            use_container_width=True,
-        )
+            use_container_width=True)
 
     with close_col:
         if st.button(
             "Tutup",
-            use_container_width=True,
-        ):
+            use_container_width=True):
             st.session_state.show_success = False
             st.rerun()
 
@@ -2245,8 +2179,7 @@ document.body.classList.toggle(
 );
 </script>
 """,
-    unsafe_allow_javascript=True,
-)
+    unsafe_allow_javascript=True)
 
 with st.sidebar:
     st.markdown("### Panel Admin")
@@ -2267,8 +2200,7 @@ with st.sidebar:
         pw_input = st.text_input(
             "Password Admin",
             type="password",
-            key="admin_pw_input",
-        )
+            key="admin_pw_input")
 
         if st.button("Masuk", key="admin_login_btn"):
             if pw_input == admin_password:
@@ -2286,8 +2218,7 @@ with st.sidebar:
         with col_logout:
             if st.button(
                 "Keluar",
-                key="admin_logout_btn",
-            ):
+                key="admin_logout_btn"):
                 st.session_state.admin_authed = False
                 st.rerun()
 
@@ -2300,8 +2231,7 @@ with st.sidebar:
         st.toggle(
             "Mode layar penuh",
             key="admin_fullscreen",
-            help="Perluas panel admin menjadi tampilan penuh.",
-        )
+            help="Perluas panel admin menjadi tampilan penuh.")
 
         if st.session_state.admin_fullscreen:
             st.caption("Panel admin sedang ditampilkan penuh.")
@@ -2309,8 +2239,7 @@ with st.sidebar:
         search_kw = st.text_input(
             "Cari order ID / nama outlet",
             key="admin_search",
-            placeholder="Contoh: ORD-260819 atau ABC Cell",
-        )
+            placeholder="Contoh: ORD-260819 atau ABC Cell")
 
         try:
             semua_data = worksheet.get_all_records()
@@ -2326,8 +2255,7 @@ with st.sidebar:
                 '<div class="wg-admin-empty">'
                 "Belum ada pesanan masuk."
                 "</div>",
-                unsafe_allow_html=True,
-            )
+                unsafe_allow_html=True)
 
         else:
             df_semua = pd.DataFrame(semua_data)
@@ -2346,8 +2274,7 @@ with st.sidebar:
                     .drop_duplicates(subset="order_id")
                     .sort_values(
                         "timestamp",
-                        ascending=False,
-                    )["order_id"]
+                        ascending=False)["order_id"]
                     .tolist()
                 )
 
@@ -2362,34 +2289,28 @@ with st.sidebar:
 
                     total_order = pd.to_numeric(
                         baris_order["subtotal"],
-                        errors="coerce",
-                    ).sum()
+                        errors="coerce").sum()
 
                     daftar_order.append(
                         {
                             "order_id": oid,
                             "nama_outlet": first_row.get(
                                 "nama_outlet",
-                                "",
-                            ),
+                                ""),
                             "no_wa": first_row.get(
                                 "no_wa",
-                                "",
-                            ),
+                                ""),
                             "alamat_pengiriman": first_row.get(
                                 "alamat_pengiriman",
-                                "",
-                            ),
+                                ""),
                             "timestamp": first_row.get(
                                 "timestamp",
-                                "",
-                            ),
+                                ""),
                             "baris_order": baris_order,
                             "total": total_order,
                             "terkirim": status_map.get(
                                 str(oid),
-                                False,
-                            ),
+                                False),
                         }
                     )
 
@@ -2443,8 +2364,7 @@ with st.sidebar:
                         d["alamat_pengiriman"],
                         d["timestamp"],
                         items_order,
-                        d["total"],
-                    )
+                        d["total"])
 
                     nomor_tujuan = format_no_wa(
                         str(d["no_wa"])
@@ -2468,27 +2388,23 @@ with st.sidebar:
                             f"{format_rupiah(d['total'])} · "
                             f"{len(d['baris_order'])} item"
                             "</div>",
-                            unsafe_allow_html=True,
-                        )
+                            unsafe_allow_html=True)
 
                                         
 
                         st.markdown(
                             '<div class="wg-admin-actions">',
-                            unsafe_allow_html=True,
-                        )
+                            unsafe_allow_html=True)
 
                         c1, c2 = st.columns(
                             2,
-                            gap="small",
-                        )
+                            gap="small")
 
                         with c1:
                             st.link_button(
                                 "Kirim WhatsApp",
                                 link_wa_admin,
-                                use_container_width=True,
-                            )
+                                use_container_width=True)
 
                         with c2:
                             if not sudah:
@@ -2498,12 +2414,10 @@ with st.sidebar:
                                         f"tandai_"
                                         f"{d['order_id']}"
                                     ),
-                                    use_container_width=True,
-                                ):
+                                    use_container_width=True):
                                     tandai_terkirim(
                                         worksheet_status,
-                                        d["order_id"],
-                                    )
+                                        d["order_id"])
                                     st.rerun()
 
                             else:
@@ -2513,56 +2427,47 @@ with st.sidebar:
                                         f"batal_"
                                         f"{d['order_id']}"
                                     ),
-                                    use_container_width=True,
-                                ):
+                                    use_container_width=True):
                                     batalkan_tandai(
                                         worksheet_status,
-                                        d["order_id"],
-                                    )
+                                        d["order_id"])
                                     st.rerun()
 
                         st.markdown(
                             "</div>",
-                            unsafe_allow_html=True,
-                        )
+                            unsafe_allow_html=True)
 
                 with st.expander(
                     f"Belum dikirim ({len(belum_dikirim)})",
-                    expanded=True,
-                ):
+                    expanded=True):
                     if not belum_dikirim:
                         st.markdown(
                             '<div class="wg-admin-empty">'
                             "Tidak ada pesanan yang belum dikirim."
                             "</div>",
-                            unsafe_allow_html=True,
-                        )
+                            unsafe_allow_html=True)
                     else:
                         for d in belum_dikirim[:JUMLAH_TAMPIL]:
                             render_kartu_order(
                                 d,
-                                sudah=False,
-                            )
+                                sudah=False)
 
                 st.divider()
 
                 with st.expander(
                     f"Sudah dikirim ({len(sudah_dikirim)})",
-                    expanded=False,
-                ):
+                    expanded=False):
                     if not sudah_dikirim:
                         st.markdown(
                             '<div class="wg-admin-empty">'
                             "Belum ada yang ditandai terkirim."
                             "</div>",
-                            unsafe_allow_html=True,
-                        )
+                            unsafe_allow_html=True)
                     else:
                         for d in sudah_dikirim[:JUMLAH_TAMPIL]:
                             render_kartu_order(
                                 d,
-                                sudah=True,
-                            )
+                                sudah=True)
 
                 st.divider()
                 st.markdown("#### Rekapitulasi")
@@ -2580,5 +2485,4 @@ with st.sidebar:
                 rc3.metric("Belum Terkirim", len(belum_dikirim))
                 rc4.metric(
                     "Total Nilai",
-                    format_rupiah(total_nilai_semua),
-                )
+                    format_rupiah(total_nilai_semua))
