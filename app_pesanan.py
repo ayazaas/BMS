@@ -551,6 +551,91 @@ div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] input {
         padding: 0.15rem 0.4rem !important;
     }
 }
+
+/* ========================================================
+   KARTU PER-ITEM INPUT SN — tampilan lebih rapi/profesional
+   Satu produk = satu kartu (judul, mode, input, preview),
+   supaya batas antar produk jelas dan tidak menyatu jadi teks
+   panjang tanpa struktur.
+   ======================================================== */
+div[class*="st-key-snitem-"] {
+    border: 1px solid rgba(49, 51, 63, 0.12) !important;
+    border-radius: 12px !important;
+    padding: 0.8rem 0.9rem 0.6rem !important;
+    margin-bottom: 0.7rem !important;
+    background: rgba(250, 250, 250, 0.55) !important;
+}
+
+.wg-sn-item-title {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: #1a1a1a !important;
+    line-height: 1.3 !important;
+    margin: 0 0 0.5rem 0 !important;
+}
+
+.wg-sn-item-qty {
+    font-weight: 400 !important;
+    color: rgba(49, 51, 63, 0.6) !important;
+    font-size: 0.82rem !important;
+}
+
+div[class*="st-key-snitem-"] div[data-testid="stRadio"] {
+    margin-bottom: 0.3rem !important;
+}
+
+div[class*="st-key-snitem-"] div[data-testid="stRadio"] label {
+    font-size: 0.85rem !important;
+}
+
+div[class*="st-key-snitem-"] [data-testid="stExpander"] {
+    border-radius: 8px !important;
+    margin-top: 0.3rem !important;
+}
+
+div[class*="st-key-snitem-"] [data-testid="stExpander"] summary {
+    font-size: 0.82rem !important;
+    padding: 0.5rem 0.7rem !important;
+}
+
+/* ========================================================
+   PREVIEW HASIL SN (Berurutan MAUPUN Acak) — sama-sama
+   scrollable & monospace, supaya konsisten & tidak melebarkan
+   halaman meski jumlah SN-nya banyak.
+   ======================================================== */
+div[class*="st-key-snpreview-"] {
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.5rem 0.75rem !important;
+    border: 1px solid rgba(49, 51, 63, 0.12) !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+}
+
+.wg-sn-preview-row {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+    font-size: 0.8rem !important;
+    line-height: 1.7 !important;
+    color: #2c2c2c !important;
+    white-space: nowrap !important;
+}
+
+.wg-sn-preview-idx {
+    display: inline-block !important;
+    width: 26px !important;
+    color: rgba(49, 51, 63, 0.42) !important;
+}
+
+@media (max-width: 480px) {
+    div[class*="st-key-snpreview-"] {
+        max-height: 180px !important;
+    }
+
+    .wg-sn-preview-row {
+        font-size: 0.76rem !important;
+    }
+}
 </style>
 
 """,
@@ -1563,13 +1648,28 @@ if detail_pesanan:
         # tiap item tetap disimpan 1 baris (tanpa SN) supaya alur
         # simpan-ke-sheet di bawah tetap konsisten.
         if kategori_terpilih == "Sniper":
-            st.markdown("---")
             st.markdown("**Input Serial Number (SN)**")
 
             semua_item_valid = []
 
             MODE_BERURUTAN = "SN Berurutan"
             MODE_ACAK = "SN Acak"
+
+            def render_sn_preview_box(container_key, list_sn):
+                """
+                Tampilkan daftar SN dalam box yang rapi & monospace.
+                Otomatis bisa di-scroll kalau isinya banyak, supaya
+                halaman tidak ikut memanjang ke bawah.
+                """
+                baris_html = "".join(
+                    f'<div class="wg-sn-preview-row">'
+                    f'<span class="wg-sn-preview-idx">{idx}.</span>{sn}'
+                    f'</div>'
+                    for idx, sn in enumerate(list_sn, start=1)
+                )
+
+                with st.container(key=container_key):
+                    st.markdown(baris_html, unsafe_allow_html=True)
 
             for item in detail_pesanan:
                 kode = item["kode_voucher"]
@@ -1595,151 +1695,157 @@ if detail_pesanan:
                     else:
                         st.session_state.sn_manual[kode] = lama[:qty]
 
-                st.markdown(
-                    f"*{item['produk']}* — qty {qty}"
-                )
-
-                mode_terpilih = st.radio(
-                    "Mode Input SN",
-                    [MODE_BERURUTAN, MODE_ACAK],
-                    index=[MODE_BERURUTAN, MODE_ACAK].index(
-                        st.session_state.sn_mode[kode]
-                    ),
-                    key=f"sn_mode_{kode}",
-                    horizontal=True,
-                    label_visibility="collapsed",
-                )
-
-                if mode_terpilih != st.session_state.sn_mode[kode]:
-                    # Mode diganti -> reset input dari mode sebelumnya
-                    # supaya datanya nggak ketuker/nyampur.
-                    st.session_state.sn_input[kode] = {
-                        "awal": "",
-                        "akhir": "",
-                    }
-                    st.session_state.sn_manual[kode] = [""] * qty
-                    st.session_state.sn_mode[kode] = mode_terpilih
-
                 item_valid = False
                 item["sn_list"] = []
 
-                if mode_terpilih == MODE_BERURUTAN:
-                    c_sn1, c_sn2 = st.columns(2)
+                sn_item_box = st.container(key=f"snitem-{kode}")
 
-                    with c_sn1:
-                        sn_awal = st.text_input(
-                            "SN Awal",
-                            value=st.session_state.sn_input[kode]["awal"],
-                            key=f"sn_awal_{kode}",
-                        )
-
-                    with c_sn2:
-                        sn_akhir = st.text_input(
-                            "SN Akhir",
-                            value=st.session_state.sn_input[kode]["akhir"],
-                            key=f"sn_akhir_{kode}",
-                        )
-
-                    st.session_state.sn_input[kode] = {
-                        "awal": sn_awal,
-                        "akhir": sn_akhir,
-                    }
-
-                    list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
-
-                    if sn_error:
-                        st.error(sn_error)
-
-                    elif not sn_awal or not sn_akhir:
-                        pass
-
-                    else:
-                        jumlah_generate = len(list_sn)
-                        item_valid = jumlah_generate == qty
-
-                        if item_valid:
-                            label_preview = (
-                                f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
-                            )
-                        else:
-                            label_preview = (
-                                f"❌ {jumlah_generate} dari {qty} SN — "
-                                f"{'kurang' if jumlah_generate < qty else 'lebih'} "
-                                f"{abs(jumlah_generate - qty)}"
-                            )
-
-                        with st.expander(label_preview, expanded=False):
-                            for idx, sn in enumerate(list_sn, start=1):
-                                st.text(f"{idx}. {sn}")
-
-                        if item_valid:
-                            item["sn_list"] = list_sn
-
-                else:
-                    # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst),
-                    # dirender dalam grid 2 kolom + box scrollable supaya
-                    # kompak dan tidak makan banyak ruang vertikal walau
-                    # qty-nya besar.
+                with sn_item_box:
                     st.markdown(
-                        f"Masukkan SN satu per satu ({qty} dibutuhkan):"
+                        f'<div class="wg-sn-item-title">'
+                        f'{item["produk"]}'
+                        f'<span class="wg-sn-item-qty"> · qty {qty}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
                     )
 
-                    nilai_manual = [""] * qty
+                    mode_terpilih = st.radio(
+                        "Mode Input SN",
+                        [MODE_BERURUTAN, MODE_ACAK],
+                        index=[MODE_BERURUTAN, MODE_ACAK].index(
+                            st.session_state.sn_mode[kode]
+                        ),
+                        key=f"sn_mode_{kode}",
+                        horizontal=True,
+                        label_visibility="collapsed",
+                    )
 
-                    sn_manual_box = st.container(key=f"snmanual-{kode}")
+                    # Ganti mode HANYA mengubah tampilan yang aktif — data
+                    # yang sudah diketik di mode satunya TIDAK dihapus,
+                    # supaya kalau user bolak-balik ganti mode, isian yang
+                    # sudah dibuat tetap tersimpan sampai pesanan benar-
+                    # benar dikirim (baru direset lewat _do_reset_qty).
+                    st.session_state.sn_mode[kode] = mode_terpilih
 
-                    with sn_manual_box:
-                        for i in range(0, qty, 2):
-                            c_sn_a, c_sn_b = st.columns(
-                                2,
-                                gap="small",
+                    if mode_terpilih == MODE_BERURUTAN:
+                        c_sn1, c_sn2 = st.columns(2)
+
+                        with c_sn1:
+                            sn_awal = st.text_input(
+                                "SN Awal",
+                                value=st.session_state.sn_input[kode]["awal"],
+                                key=f"sn_awal_{kode}",
                             )
 
-                            with c_sn_a:
-                                idx_a = i
-                                nilai_manual[idx_a] = st.text_input(
-                                    f"SN #{idx_a + 1}",
-                                    value=st.session_state.sn_manual[kode][idx_a],
-                                    key=f"sn_manual_{kode}_{idx_a}",
+                        with c_sn2:
+                            sn_akhir = st.text_input(
+                                "SN Akhir",
+                                value=st.session_state.sn_input[kode]["akhir"],
+                                key=f"sn_akhir_{kode}",
+                            )
+
+                        st.session_state.sn_input[kode] = {
+                            "awal": sn_awal,
+                            "akhir": sn_akhir,
+                        }
+
+                        list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
+
+                        if sn_error:
+                            st.error(sn_error)
+
+                        elif not sn_awal or not sn_akhir:
+                            pass
+
+                        else:
+                            jumlah_generate = len(list_sn)
+                            item_valid = jumlah_generate == qty
+
+                            if item_valid:
+                                label_preview = (
+                                    f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
+                                )
+                            else:
+                                label_preview = (
+                                    f"❌ {jumlah_generate} dari {qty} SN — "
+                                    f"{'kurang' if jumlah_generate < qty else 'lebih'} "
+                                    f"{abs(jumlah_generate - qty)}"
                                 )
 
-                            if i + 1 < qty:
-                                with c_sn_b:
-                                    idx_b = i + 1
-                                    nilai_manual[idx_b] = st.text_input(
-                                        f"SN #{idx_b + 1}",
-                                        value=st.session_state.sn_manual[kode][idx_b],
-                                        key=f"sn_manual_{kode}_{idx_b}",
-                                    )
+                            with st.expander(label_preview, expanded=False):
+                                render_sn_preview_box(
+                                    f"snpreview-{kode}",
+                                    list_sn,
+                                )
 
-                    st.session_state.sn_manual[kode] = nilai_manual
-
-                    list_sn, sn_error = validate_sn_manual_list(nilai_manual)
-
-                    if sn_error:
-                        st.error(sn_error)
-
-                    elif not list_sn:
-                        pass
+                            if item_valid:
+                                item["sn_list"] = list_sn
 
                     else:
-                        jumlah_terisi = len(list_sn)
-                        item_valid = jumlah_terisi == qty
-
-                        label_preview = (
-                            f"✅ {jumlah_terisi} dari {qty} SN terisi "
-                            f"(tidak ada duplikat)"
+                        # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst),
+                        # dirender dalam grid 2 kolom + box scrollable supaya
+                        # kompak dan tidak makan banyak ruang vertikal walau
+                        # qty-nya besar.
+                        st.caption(
+                            f"Masukkan SN satu per satu ({qty} dibutuhkan)"
                         )
 
-                        with st.expander(label_preview, expanded=False):
-                            for idx, sn in enumerate(list_sn, start=1):
-                                st.text(f"{idx}. {sn}")
+                        nilai_manual = [""] * qty
 
-                        item["sn_list"] = list_sn
+                        sn_manual_box = st.container(key=f"snmanual-{kode}")
+
+                        with sn_manual_box:
+                            for i in range(0, qty, 2):
+                                c_sn_a, c_sn_b = st.columns(
+                                    2,
+                                    gap="small",
+                                )
+
+                                with c_sn_a:
+                                    idx_a = i
+                                    nilai_manual[idx_a] = st.text_input(
+                                        f"SN #{idx_a + 1}",
+                                        value=st.session_state.sn_manual[kode][idx_a],
+                                        key=f"sn_manual_{kode}_{idx_a}",
+                                    )
+
+                                if i + 1 < qty:
+                                    with c_sn_b:
+                                        idx_b = i + 1
+                                        nilai_manual[idx_b] = st.text_input(
+                                            f"SN #{idx_b + 1}",
+                                            value=st.session_state.sn_manual[kode][idx_b],
+                                            key=f"sn_manual_{kode}_{idx_b}",
+                                        )
+
+                        st.session_state.sn_manual[kode] = nilai_manual
+
+                        list_sn, sn_error = validate_sn_manual_list(nilai_manual)
+
+                        if sn_error:
+                            st.error(sn_error)
+
+                        elif not list_sn:
+                            pass
+
+                        else:
+                            jumlah_terisi = len(list_sn)
+                            item_valid = jumlah_terisi == qty
+
+                            label_preview = (
+                                f"✅ {jumlah_terisi} dari {qty} SN terisi "
+                                f"(tidak ada duplikat)"
+                            )
+
+                            with st.expander(label_preview, expanded=False):
+                                render_sn_preview_box(
+                                    f"snpreview-acak-{kode}",
+                                    list_sn,
+                                )
+
+                            item["sn_list"] = list_sn
 
                 semua_item_valid.append(item_valid)
-
-                st.markdown("")
 
             sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
 
