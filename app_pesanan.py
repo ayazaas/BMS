@@ -888,6 +888,11 @@ def parse_sn_upload_file(uploaded_file):
 
     try:
         raw = uploaded_file.getvalue()
+
+        MAX_TXT_SIZE = 5 * 1024 * 1024  # 5 MB
+        if len(raw) > MAX_TXT_SIZE:
+            return [], "Ukuran file TXT maksimal 5 MB."
+
         try:
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
@@ -1946,7 +1951,7 @@ if detail_pesanan:
                         # Isi file harus 1 SN per baris dan maksimal 100 baris.
                         st.caption(
                             f"Upload 1 file .txt untuk {qty} SN "
-                            f"(maksimal 100 baris)"
+                            f"(maksimal 100 baris, 5 MB)"
                         )
 
                         uploaded_sn_file = st.file_uploader(
@@ -1957,7 +1962,7 @@ if detail_pesanan:
                             help=(
                                 "Satu file untuk produk ini. "
                                 "Tulis 1 SN pada setiap baris. "
-                                "Maksimal 100 baris."
+                                "Maksimal 100 baris dan ukuran file 5 MB."
                             ),
                         )
 
