@@ -621,12 +621,54 @@ if "last_cs_wa_link" not in st.session_state:
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
+# Input SN (Serial Number) per kode_voucher: {kode: {"awal": str, "akhir": str}}
+if "sn_input" not in st.session_state:
+    st.session_state.sn_input = {}
+
 
 def _parse_qty(value):
     try:
         return max(0, int(str(value).strip() or "0"))
     except (TypeError, ValueError):
         return 0
+
+
+def generate_sn_list(sn_awal, sn_akhir):
+    """
+    Generate daftar SN berurutan dari sn_awal ke sn_akhir (inklusif).
+    Mengembalikan tuple (list_sn, pesan_error).
+    Kalau salah satu input masih kosong, kembalikan ([], None)
+    supaya belum dianggap error (user belum selesai isi).
+    """
+    sn_awal = (sn_awal or "").strip()
+    sn_akhir = (sn_akhir or "").strip()
+
+    if not sn_awal or not sn_akhir:
+        return [], None
+
+    if not sn_awal.isdigit() or not sn_akhir.isdigit():
+        return [], "SN Awal/Akhir harus berupa angka."
+
+    if len(sn_awal) != len(sn_akhir):
+        return [], "Jumlah digit SN Awal dan SN Akhir harus sama."
+
+    digit_len = len(sn_awal)
+    awal_int = int(sn_awal)
+    akhir_int = int(sn_akhir)
+
+    if akhir_int < awal_int:
+        return [], "SN Akhir harus lebih besar atau sama dengan SN Awal."
+
+    jumlah = akhir_int - awal_int + 1
+
+    if jumlah > 500:
+        return [], "Range SN terlalu besar (maks 500 sekali input)."
+
+    list_sn = [
+        str(awal_int + i).zfill(digit_len) for i in range(jumlah)
+    ]
+
+    return list_sn, None
 
 
 def tambah(kode):
@@ -1087,6 +1129,7 @@ if st.session_state.get("_do_reset_qty"):
     for kode in produk_df["kode_voucher"]:
         st.session_state.qty[kode] = 0
     st.session_state["_do_reset_qty"] = False
+    st.session_state.sn_input = {}
 
 st.divider()
 
@@ -1387,8 +1430,10 @@ if total_halaman > 1:
 st.divider()
 
 # ============================================================
-# RINGKASAN
+# RINGKASAN + INPUT SERIAL NUMBER (SN)
 # ============================================================
+
+sn_semua_valid = False
 
 if detail_pesanan:
     with st.expander(
@@ -1415,6 +1460,98 @@ if detail_pesanan:
             hide_index=True,
         )
 
+        st.markdown("---")
+        st.markdown("**Input Serial Number (SN)**")
+        st.caption(
+            "Cek SN pada struk/hasil transaksi H2H setelah voucher "
+            "berhasil diproses, lalu masukkan SN pertama dan SN "
+            "terakhir untuk tiap produk di bawah ini."
+        )
+
+        semua_item_valid = []
+
+        for item in detail_pesanan:
+            kode = item["kode_voucher"]
+            qty = item["qty"]
+
+            if kode not in st.session_state.sn_input:
+                st.session_state.sn_input[kode] = {
+                    "awal": "",
+                    "akhir": "",
+                }
+
+            st.markdown(
+                f"*{item['produk']}* — qty {qty}"
+            )
+
+            c_sn1, c_sn2 = st.columns(2)
+
+            with c_sn1:
+                sn_awal = st.text_input(
+                    "SN Awal",
+                    value=st.session_state.sn_input[kode]["awal"],
+                    key=f"sn_awal_{kode}",
+                    placeholder="Contoh: 1234567890123450",
+                )
+
+            with c_sn2:
+                sn_akhir = st.text_input(
+                    "SN Akhir",
+                    value=st.session_state.sn_input[kode]["akhir"],
+                    key=f"sn_akhir_{kode}",
+                    placeholder="Contoh: 1234567890123457",
+                )
+
+            st.session_state.sn_input[kode] = {
+                "awal": sn_awal,
+                "akhir": sn_akhir,
+            }
+
+            list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
+
+            item_valid = False
+            item["sn_list"] = []
+
+            if sn_error:
+                st.error(sn_error)
+
+            elif not sn_awal or not sn_akhir:
+                st.caption("⏳ Belum diisi.")
+
+            else:
+                jumlah_generate = len(list_sn)
+                item_valid = jumlah_generate == qty
+
+                if item_valid:
+                    label_preview = (
+                        f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
+                    )
+                else:
+                    label_preview = (
+                        f"❌ {jumlah_generate} dari {qty} SN — "
+                        f"{'kurang' if jumlah_generate < qty else 'lebih'} "
+                        f"{abs(jumlah_generate - qty)}"
+                    )
+
+                with st.expander(label_preview, expanded=False):
+                    for idx, sn in enumerate(list_sn, start=1):
+                        st.text(f"{idx}. {sn}")
+
+                if item_valid:
+                    item["sn_list"] = list_sn
+
+            semua_item_valid.append(item_valid)
+
+            st.markdown("")
+
+        sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
+
+        if not sn_semua_valid:
+            st.warning(
+                "Lengkapi SN Awal & SN Akhir untuk semua produk "
+                "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
+            )
+
     col_total1, col_total2 = st.columns([2, 1])
 
     with col_total2:
@@ -1431,7 +1568,7 @@ if st.button(
     "🧾 Kirim Pesanan",
     type="primary",
     use_container_width=True,
-    disabled=not sheet_ok,
+    disabled=not sheet_ok or not sn_semua_valid,
 ):
     if not nama_outlet or not no_wa:
         st.error(
@@ -1443,12 +1580,20 @@ if st.button(
             "Pilih minimal 1 produk dengan quantity lebih dari 0."
         )
 
+    elif not sn_semua_valid:
+        st.error(
+            "Lengkapi Serial Number (SN) untuk semua produk terlebih dahulu."
+        )
+
     else:
         # timestamp: format baku untuk disimpan ke Google Sheets.
         timestamp = now_wib().strftime("%Y-%m-%d %H:%M:%S")
 
         order_id = buat_order_id()
 
+        # Opsi B: 1 baris per SN. Tiap item di-"pecah" jadi sebanyak
+        # SN yang sudah digenerate (list_sn), supaya tiap voucher
+        # individual bisa dilacak lewat kolom "sn" masing-masing.
         rows_to_append = [
             [
                 timestamp,
@@ -1463,8 +1608,10 @@ if st.button(
                 item["qty"],
                 item["subtotal"],
                 total_harga,
+                sn,
             ]
             for item in detail_pesanan
+            for sn in item["sn_list"]
         ]
 
         try:
