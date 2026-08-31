@@ -96,12 +96,26 @@ header[data-testid="stHeader"] {
 }
 
 .wg-header-line1 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 100% !important;
     font-size: 36px !important;
     font-weight: 800 !important;
     line-height: 1.2 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
     text-align: center !important;
+}
+
+.wg-header-line1 .wg-header-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 36px !important;
+    line-height: 1 !important;
+    flex: 0 0 auto !important;
 }
 
 .wg-header-line2 {
@@ -1270,7 +1284,10 @@ def batalkan_tandai(ws_status, order_id):
 st.markdown(
     """
     <div class="wg-header">
-        <div class="wg-header-line1">🛒 TOKO WG</div>
+        <div class="wg-header-line1">
+            <span class="wg-header-icon">🛒</span>
+            <span>TOKO WG</span>
+        </div>
         <div class="wg-header-line2">Form Order</div>
         <div class="wg-header-desc">
             Isi data outlet, lalu pilih voucher dan jumlahnya.
