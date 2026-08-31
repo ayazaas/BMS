@@ -517,17 +517,6 @@ div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] > div {
 }
 
 /* ========================================================
-   FILE UPLOADER TXT
-   Hanya sembunyikan teks bawaan Streamlit:
-   "200MB per file • TXT" di samping tombol Upload.
-   Tombol Upload dan seluruh uploader tetap tampil.
-   Batas file 5 MB tetap divalidasi oleh Python.
-   ======================================================== */
-[data-testid="stFileUploaderDropzoneInstructions"] small {
-    display: none !important;
-}
-
-/* ========================================================
    SN ACAK — GRID 2 KOLOM, KOMPAK, SCROLLABLE
    Dibungkus dalam box dengan tinggi maksimal supaya kalau qty
    banyak (mis. >8 SN), kotaknya nggak makin memanjangkan
@@ -890,7 +879,7 @@ def validate_sn_manual_list(list_input):
 def parse_sn_upload_file(uploaded_file):
     """
     Membaca file .txt berisi SN, satu SN per baris.
-    Maksimal 100 baris SN per file dan ukuran file 5 MB.
+    Maksimal 100 baris SN per file.
     Mengembalikan tuple (list_sn, pesan_error).
     Baris kosong diabaikan.
     """
@@ -1959,12 +1948,22 @@ if detail_pesanan:
 
                     else:
                         # Mode SN Upload.txt: satu file TXT untuk SATU produk.
-                        # Isi file 1 SN per baris, maksimal 100 baris dan 5 MB.
+                        # Isi file harus 1 SN per baris dan maksimal 100 baris.
+                        st.caption(
+                            f"Upload 1 file .txt untuk {qty} SN "
+                            f"(maksimal 100 baris, 5 MB)"
+                        )
+
                         uploaded_sn_file = st.file_uploader(
                             "File SN (.txt)",
                             type=["txt"],
                             accept_multiple_files=False,
                             key=f"sn_upload_file_{kode}",
+                            help=(
+                                "Satu file untuk produk ini. "
+                                "Tulis 1 SN pada setiap baris. "
+                                "Maksimal 100 baris dan ukuran file 5 MB."
+                            ),
                         )
 
                         if uploaded_sn_file is None:
