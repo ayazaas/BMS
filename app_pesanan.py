@@ -91,23 +91,34 @@ header[data-testid="stHeader"] {
    supaya tampilan header sama persis di PC, laptop, maupun HP.
    ======================================================== */
 .wg-header {
-    margin: 0 0 0.15rem 0 !important;
+    margin: 0 0 0.45rem 0 !important;
+    text-align: center !important;
 }
 
 .wg-header-line1 {
     font-size: 36px !important;
     font-weight: 800 !important;
-    line-height: 1.25 !important;
+    line-height: 1.2 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
+    text-align: center !important;
 }
 
 .wg-header-line2 {
-    font-size: 36px !important;
-    font-weight: 800 !important;
-    line-height: 1.25 !important;
-    color: #1a1a1a !important;
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    line-height: 1.3 !important;
+    color: #30323d !important;
     white-space: nowrap !important;
+    text-align: center !important;
+}
+
+.wg-header-desc {
+    text-align: center !important;
+    font-size: 15px !important;
+    line-height: 1.4 !important;
+    color: rgba(49, 51, 63, 0.65) !important;
+    margin: 0.15rem auto 0.8rem !important;
 }
 
 /* Ukuran subheader ("Data Outlet", "Pilih Provider") dikunci dengan
@@ -1259,13 +1270,15 @@ def batalkan_tandai(ws_status, order_id):
 st.markdown(
     """
     <div class="wg-header">
-        <div class="wg-header-line1">🛒 Toko WG</div>
+        <div class="wg-header-line1">🛒 TOKO WG</div>
         <div class="wg-header-line2">Form Order</div>
+        <div class="wg-header-desc">
+            Isi data outlet, lalu pilih voucher dan jumlahnya.
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-st.caption("Isi data outlet, lalu pilih voucher dan jumlahnya.")
 
 # ============================================================
 # DATA OUTLET
@@ -2006,7 +2019,7 @@ if st.button(
                 timestamp,
                 order_id,
                 nama_outlet,
-                no_wa,
+                f"'{no_wa.strip()}",
                 alamat_pengiriman,
                 item["provider"],
                 item["kode_voucher"],
