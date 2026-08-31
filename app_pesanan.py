@@ -862,6 +862,32 @@ def format_rupiah(n):
     return f"Rp {n:,.0f}".replace(",", ".")
 
 
+def sn_sebagai_teks(sn):
+    """
+    Paksa nilai SN disimpan sebagai TEKS di Google Sheets (bukan
+    dikonversi jadi angka).
+
+    Root cause bug "10001 jadi 1" di sheet: dengan
+    value_input_option="USER_ENTERED", Google Sheets mem-parsing
+    input SEPERTI kalau user mengetik langsung di UI Sheets. Kalau
+    isinya berupa deretan angka murni (mis. "10001"), Sheets otomatis
+    mengubahnya jadi tipe data NUMBER, lalu ikut aturan format/parsing
+    angka pada kolom tsb (bisa memangkas/mengubah tampilannya).
+
+    Solusinya: tambahkan awalan tanda kutip satu (') di depan nilainya,
+    sama seperti trik manual di Google Sheets UI untuk memaksa suatu
+    sel dibaca sebagai teks apa adanya. Tanda kutip ini tidak akan
+    ikut tampil di sel — Sheets otomatis menyembunyikannya dan hanya
+    menyimpan sisanya sebagai teks persis seperti yang diketik.
+    """
+    sn = str(sn or "").strip()
+
+    if not sn:
+        return sn
+
+    return f"'{sn}"
+
+
 def buat_order_id():
     now = now_wib()
     acak = random.randint(100, 999)
@@ -1651,6 +1677,7 @@ if detail_pesanan:
             st.markdown("**Input Serial Number (SN)**")
 
             semua_item_valid = []
+            item_konflik = []
 
             MODE_BERURUTAN = "SN Berurutan"
             MODE_ACAK = "SN Acak"
@@ -1846,39 +1873,83 @@ if detail_pesanan:
                             item["sn_list"] = list_sn
 
                 # ----------------------------------------------------------
-                # Fallback lintas-mode: jika mode yang SEDANG DITAMPILKAN
-                # belum lengkap/valid, cek juga data yang sudah diisi di
-                # mode LAINNYA (tersimpan di session_state walau tidak
-                # sedang ditampilkan). Dengan begini, outlet cukup mengisi
-                # SALAH SATU dari 2 opsi (SN Berurutan ATAU SN Acak) —
-                # tidak wajib mengisi mode yang sedang aktif di radio saja.
+                # Validasi akhir per item — dihitung independen dari mode
+                # mana yang SEDANG TAMPIL di radio, langsung dari data
+                # tersimpan di session_state untuk KEDUA mode:
+                #
+                # 1) Outlet cukup mengisi SALAH SATU dari 2 opsi (SN
+                #    Berurutan ATAU SN Acak) — order tetap valid walau
+                #    radio sedang menampilkan mode yang lain.
+                # 2) Kalau KEDUA opsi ternyata terisi lengkap & sesuai
+                #    qty di saat bersamaan, item ini dianggap TIDAK valid
+                #    dan outlet diberi peringatan untuk memilih salah
+                #    satu saja (supaya tidak ambigu SN mana yang mau
+                #    dipakai saat dikirim).
                 # ----------------------------------------------------------
-                if not item_valid:
-                    if mode_terpilih == MODE_BERURUTAN:
-                        list_sn_lain, err_lain = validate_sn_manual_list(
-                            st.session_state.sn_manual.get(kode, [])
-                        )
-                    else:
-                        data_awal_akhir = st.session_state.sn_input.get(kode, {})
-                        list_sn_lain, err_lain = generate_sn_list(
-                            data_awal_akhir.get("awal", ""),
-                            data_awal_akhir.get("akhir", ""),
-                        )
+                data_urut = st.session_state.sn_input.get(kode, {})
+                list_urut, err_urut = generate_sn_list(
+                    data_urut.get("awal", ""),
+                    data_urut.get("akhir", ""),
+                )
+                valid_urut = (
+                    not err_urut
+                    and bool(list_urut)
+                    and len(list_urut) == qty
+                )
 
-                    if not err_lain and list_sn_lain and len(list_sn_lain) == qty:
-                        item_valid = True
-                        item["sn_list"] = list_sn_lain
+                list_acak, err_acak = validate_sn_manual_list(
+                    st.session_state.sn_manual.get(kode, [])
+                )
+                valid_acak = (
+                    not err_acak
+                    and bool(list_acak)
+                    and len(list_acak) == qty
+                )
+
+                if valid_urut and valid_acak:
+                    item_valid = False
+                    item["sn_list"] = []
+                    item_konflik.append(item["produk"])
+
+                    st.warning(
+                        "⚠️ SN Berurutan **dan** SN Acak sama-sama sudah "
+                        "terisi lengkap untuk produk ini. Pesanan hanya "
+                        "bisa dikirim kalau kamu memilih **salah satu** "
+                        "opsi saja — kosongkan salah satu mode input SN "
+                        "di atas sebelum mengirim."
+                    )
+
+                elif valid_urut:
+                    item_valid = True
+                    item["sn_list"] = list_urut
+
+                elif valid_acak:
+                    item_valid = True
+                    item["sn_list"] = list_acak
+
+                else:
+                    item_valid = False
+                    item["sn_list"] = []
 
                 semua_item_valid.append(item_valid)
 
             sn_semua_valid = all(semua_item_valid) if semua_item_valid else False
 
             if not sn_semua_valid:
-                st.warning(
-                    "Lengkapi salah satu dari 2 opsi input SN "
-                    "(SN Berurutan ATAU SN Acak) untuk semua produk "
-                    "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
-                )
+                if item_konflik:
+                    st.warning(
+                        "Produk berikut terisi SN di **kedua mode** "
+                        "(Berurutan & Acak) sekaligus: "
+                        + ", ".join(item_konflik)
+                        + ". Pilih salah satu mode saja untuk tiap produk "
+                        "tersebut sebelum mengirim pesanan."
+                    )
+                else:
+                    st.warning(
+                        "Lengkapi salah satu dari 2 opsi input SN "
+                        "(SN Berurutan ATAU SN Acak) untuk semua produk "
+                        "(jumlah SN harus sama dengan qty) sebelum mengirim pesanan."
+                    )
 
         else:
             # Matengan: tidak perlu input SN, tiap item disimpan
@@ -1944,7 +2015,7 @@ if st.button(
                 item["qty"],
                 item["subtotal"],
                 total_harga,
-                sn,
+                sn_sebagai_teks(sn),
             ]
             for item in detail_pesanan
             for sn in item["sn_list"]
