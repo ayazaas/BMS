@@ -490,6 +490,67 @@ div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] {
 div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] > div {
     min-width: 0 !important;
 }
+
+/* ========================================================
+   SN ACAK — GRID 2 KOLOM, KOMPAK, SCROLLABLE
+   Dibungkus dalam box dengan tinggi maksimal supaya kalau qty
+   banyak (mis. >8 SN), kotaknya nggak makin memanjangkan
+   halaman ke bawah — cukup scroll di dalam box-nya saja.
+   ======================================================== */
+div[class*="st-key-snmanual-"] {
+    max-height: 260px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.5rem 0.6rem 0.2rem 0.2rem !important;
+    border: 1px solid rgba(49, 51, 63, 0.15) !important;
+    border-radius: 8px !important;
+    background: rgba(250, 250, 250, 0.6) !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="element-container"] {
+    margin-bottom: 0.35rem !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] label {
+    font-size: 0.72rem !important;
+    margin-bottom: 0.05rem !important;
+    line-height: 1.1 !important;
+    color: rgba(49, 51, 63, 0.7) !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] input {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.82rem !important;
+}
+
+@media (max-width: 480px) {
+    div[class*="st-key-snmanual-"] {
+        max-height: 220px !important;
+    }
+
+    div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] label {
+        font-size: 0.68rem !important;
+    }
+
+    div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] input {
+        height: 30px !important;
+        min-height: 30px !important;
+        font-size: 0.78rem !important;
+        padding: 0.15rem 0.4rem !important;
+    }
+}
 </style>
 
 """,
@@ -1615,20 +1676,41 @@ if detail_pesanan:
                             item["sn_list"] = list_sn
 
                 else:
-                    # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst).
+                    # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst),
+                    # dirender dalam grid 2 kolom + box scrollable supaya
+                    # kompak dan tidak makan banyak ruang vertikal walau
+                    # qty-nya besar.
                     st.markdown(
                         f"Masukkan SN satu per satu ({qty} dibutuhkan):"
                     )
 
-                    nilai_manual = []
+                    nilai_manual = [""] * qty
 
-                    for idx in range(qty):
-                        nilai_kotak = st.text_input(
-                            f"SN #{idx + 1}",
-                            value=st.session_state.sn_manual[kode][idx],
-                            key=f"sn_manual_{kode}_{idx}",
-                        )
-                        nilai_manual.append(nilai_kotak)
+                    sn_manual_box = st.container(key=f"snmanual-{kode}")
+
+                    with sn_manual_box:
+                        for i in range(0, qty, 2):
+                            c_sn_a, c_sn_b = st.columns(
+                                2,
+                                gap="small",
+                            )
+
+                            with c_sn_a:
+                                idx_a = i
+                                nilai_manual[idx_a] = st.text_input(
+                                    f"SN #{idx_a + 1}",
+                                    value=st.session_state.sn_manual[kode][idx_a],
+                                    key=f"sn_manual_{kode}_{idx_a}",
+                                )
+
+                            if i + 1 < qty:
+                                with c_sn_b:
+                                    idx_b = i + 1
+                                    nilai_manual[idx_b] = st.text_input(
+                                        f"SN #{idx_b + 1}",
+                                        value=st.session_state.sn_manual[kode][idx_b],
+                                        key=f"sn_manual_{kode}_{idx_b}",
+                                    )
 
                     st.session_state.sn_manual[kode] = nilai_manual
 
