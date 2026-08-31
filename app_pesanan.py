@@ -624,6 +624,12 @@ if "last_order_id" not in st.session_state:
 # Input SN (Serial Number) per kode_voucher: {kode: {"awal": str, "akhir": str}}
 if "sn_input" not in st.session_state:
     st.session_state.sn_input = {}
+# Mode input SN per kode_voucher: "SN Berurutan" atau "SN Acak"
+if "sn_mode" not in st.session_state:
+    st.session_state.sn_mode = {}
+# Isi textarea mode "SN Acak" per kode_voucher
+if "sn_manual" not in st.session_state:
+    st.session_state.sn_manual = {}
 
 
 def _parse_qty(value):
@@ -667,6 +673,36 @@ def generate_sn_list(sn_awal, sn_akhir):
     list_sn = [
         str(awal_int + i).zfill(digit_len) for i in range(jumlah)
     ]
+
+    return list_sn, None
+
+
+def parse_sn_manual(text):
+    """
+    Parse input SN mode 'SN Acak' — satu SN per baris (bebas ketik
+    manual atau tempel dari struk). Baris kosong otomatis di-skip.
+    Mengembalikan tuple (list_sn, pesan_error). Kalau ada SN yang
+    sama diketik lebih dari sekali, dianggap error (kemungkinan
+    besar typo/salah tempel, bukan disengaja).
+    """
+    if not (text or "").strip():
+        return [], None
+
+    list_sn = [
+        baris.strip() for baris in text.splitlines() if baris.strip()
+    ]
+
+    if not list_sn:
+        return [], None
+
+    counter = {}
+    for sn in list_sn:
+        counter[sn] = counter.get(sn, 0) + 1
+
+    duplikat = sorted([sn for sn, jml in counter.items() if jml > 1])
+
+    if duplikat:
+        return [], f"Ada SN yang dobel: {', '.join(duplikat)}"
 
     return list_sn, None
 
@@ -1130,6 +1166,8 @@ if st.session_state.get("_do_reset_qty"):
         st.session_state.qty[kode] = 0
     st.session_state["_do_reset_qty"] = False
     st.session_state.sn_input = {}
+    st.session_state.sn_mode = {}
+    st.session_state.sn_manual = {}
 
 st.divider()
 
@@ -1474,6 +1512,9 @@ if detail_pesanan:
 
             semua_item_valid = []
 
+            MODE_BERURUTAN = "SN Berurutan"
+            MODE_ACAK = "SN Acak"
+
             for item in detail_pesanan:
                 kode = item["kode_voucher"]
                 qty = item["qty"]
@@ -1483,64 +1524,139 @@ if detail_pesanan:
                         "awal": "",
                         "akhir": "",
                     }
+                if kode not in st.session_state.sn_mode:
+                    st.session_state.sn_mode[kode] = MODE_BERURUTAN
+                if kode not in st.session_state.sn_manual:
+                    st.session_state.sn_manual[kode] = ""
 
                 st.markdown(
                     f"*{item['produk']}* — qty {qty}"
                 )
 
-                c_sn1, c_sn2 = st.columns(2)
+                mode_terpilih = st.radio(
+                    "Mode Input SN",
+                    [MODE_BERURUTAN, MODE_ACAK],
+                    index=[MODE_BERURUTAN, MODE_ACAK].index(
+                        st.session_state.sn_mode[kode]
+                    ),
+                    key=f"sn_mode_{kode}",
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
 
-                with c_sn1:
-                    sn_awal = st.text_input(
-                        "SN Awal",
-                        value=st.session_state.sn_input[kode]["awal"],
-                        key=f"sn_awal_{kode}",
-                    )
-
-                with c_sn2:
-                    sn_akhir = st.text_input(
-                        "SN Akhir",
-                        value=st.session_state.sn_input[kode]["akhir"],
-                        key=f"sn_akhir_{kode}",
-                    )
-
-                st.session_state.sn_input[kode] = {
-                    "awal": sn_awal,
-                    "akhir": sn_akhir,
-                }
-
-                list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
+                if mode_terpilih != st.session_state.sn_mode[kode]:
+                    # Mode diganti -> reset input dari mode sebelumnya
+                    # supaya datanya nggak ketuker/nyampur.
+                    st.session_state.sn_input[kode] = {
+                        "awal": "",
+                        "akhir": "",
+                    }
+                    st.session_state.sn_manual[kode] = ""
+                    st.session_state.sn_mode[kode] = mode_terpilih
 
                 item_valid = False
                 item["sn_list"] = []
 
-                if sn_error:
-                    st.error(sn_error)
+                if mode_terpilih == MODE_BERURUTAN:
+                    c_sn1, c_sn2 = st.columns(2)
 
-                elif not sn_awal or not sn_akhir:
-                    pass
+                    with c_sn1:
+                        sn_awal = st.text_input(
+                            "SN Awal",
+                            value=st.session_state.sn_input[kode]["awal"],
+                            key=f"sn_awal_{kode}",
+                        )
+
+                    with c_sn2:
+                        sn_akhir = st.text_input(
+                            "SN Akhir",
+                            value=st.session_state.sn_input[kode]["akhir"],
+                            key=f"sn_akhir_{kode}",
+                        )
+
+                    st.session_state.sn_input[kode] = {
+                        "awal": sn_awal,
+                        "akhir": sn_akhir,
+                    }
+
+                    list_sn, sn_error = generate_sn_list(sn_awal, sn_akhir)
+
+                    if sn_error:
+                        st.error(sn_error)
+
+                    elif not sn_awal or not sn_akhir:
+                        pass
+
+                    else:
+                        jumlah_generate = len(list_sn)
+                        item_valid = jumlah_generate == qty
+
+                        if item_valid:
+                            label_preview = (
+                                f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
+                            )
+                        else:
+                            label_preview = (
+                                f"❌ {jumlah_generate} dari {qty} SN — "
+                                f"{'kurang' if jumlah_generate < qty else 'lebih'} "
+                                f"{abs(jumlah_generate - qty)}"
+                            )
+
+                        with st.expander(label_preview, expanded=False):
+                            for idx, sn in enumerate(list_sn, start=1):
+                                st.text(f"{idx}. {sn}")
+
+                        if item_valid:
+                            item["sn_list"] = list_sn
 
                 else:
-                    jumlah_generate = len(list_sn)
-                    item_valid = jumlah_generate == qty
+                    # Mode SN Acak: satu textarea, SN dipisah per baris.
+                    tinggi_area = max(68, min(240, 34 * qty))
 
-                    if item_valid:
-                        label_preview = (
-                            f"✅ {jumlah_generate} dari {qty} SN sesuai qty"
-                        )
+                    sn_manual_text = st.text_area(
+                        "SN Acak",
+                        value=st.session_state.sn_manual[kode],
+                        key=f"sn_manual_{kode}",
+                        placeholder=(
+                            f"Tempel/ketik {qty} SN di sini, "
+                            f"satu SN per baris"
+                        ),
+                        height=tinggi_area,
+                        label_visibility="collapsed",
+                    )
+
+                    st.session_state.sn_manual[kode] = sn_manual_text
+
+                    list_sn, sn_error = parse_sn_manual(sn_manual_text)
+
+                    if sn_error:
+                        st.error(sn_error)
+
+                    elif not sn_manual_text.strip():
+                        pass
+
                     else:
-                        label_preview = (
-                            f"❌ {jumlah_generate} dari {qty} SN — "
-                            f"{'kurang' if jumlah_generate < qty else 'lebih'} "
-                            f"{abs(jumlah_generate - qty)}"
-                        )
+                        jumlah_terisi = len(list_sn)
+                        item_valid = jumlah_terisi == qty
 
-                    with st.expander(label_preview, expanded=False):
-                        for idx, sn in enumerate(list_sn, start=1):
-                            st.text(f"{idx}. {sn}")
+                        if item_valid:
+                            label_preview = (
+                                f"✅ {jumlah_terisi} dari {qty} SN terisi "
+                                f"(tidak ada duplikat)"
+                            )
+                        else:
+                            label_preview = (
+                                f"❌ {jumlah_terisi} dari {qty} SN — "
+                                f"{'kurang' if jumlah_terisi < qty else 'lebih'} "
+                                f"{abs(jumlah_terisi - qty)}"
+                            )
 
-                    if item_valid:
-                        item["sn_list"] = list_sn
+                        with st.expander(label_preview, expanded=False):
+                            for idx, sn in enumerate(list_sn, start=1):
+                                st.text(f"{idx}. {sn}")
+
+                        if item_valid:
+                            item["sn_list"] = list_sn
 
                 semua_item_valid.append(item_valid)
 
