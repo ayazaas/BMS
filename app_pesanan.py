@@ -11,24 +11,20 @@ import gspread
 from google.oauth2.service_account import Credentials
 from PIL import Image, ImageDraw, ImageFont
 
-# ============================================================
-# KONFIGURASI
-# ============================================================
+             
 
 NAMA_WORKSHEET_PESANAN = "Pesanan"
 NAMA_WORKSHEET_PRODUK_SNIPER = "Produk_Sniper"
 NAMA_WORKSHEET_PRODUK_MATENGAN = "Produk_Matengan"
 NAMA_WORKSHEET_STATUS = "StatusKirim"
 
-# Zona waktu WIB (Waktu Indonesia Barat, UTC+7).
-# Dipakai untuk SEMUA timestamp di aplikasi ini supaya tidak
-# tergantung timezone server (mis. Railway biasanya UTC).
+                                                            
+                                                         
 WIB = ZoneInfo("Asia/Jakarta")
 
 def now_wib():
     """Waktu sekarang di zona WIB (real-time, bukan waktu server)."""
     return datetime.now(WIB)
-
 
 st.set_page_config(
     page_title="Form Pesanan Outlet",
@@ -36,9 +32,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# ============================================================
-# CSS + FLOATING SCROLL CONTROLLER
-# ============================================================
+                                  
 
 st.html(
     """
@@ -494,7 +488,6 @@ body.wg-admin-fullscreen .main {
     visibility: hidden !important;
 }
 
-
 /* Catatan: ukuran tombol qty & padding card SENGAJA tidak diberi
    override khusus mobile lagi, supaya tampilannya statis/sama
    persis baik dibuka di PC, laptop, maupun HP. */
@@ -667,9 +660,7 @@ div[class*="st-key-snpreview-"] {
     unsafe_allow_javascript=True,
 )
 
-# ============================================================
-# KONEKSI GOOGLE SHEETS
-# ============================================================
+                       
 
 @st.cache_resource
 def connect_sheet():
@@ -678,18 +669,16 @@ def connect_sheet():
         "https://www.googleapis.com/auth/drive",
     ]
 
-    # ========================================================
-    # AMBIL GOOGLE SERVICE ACCOUNT DARI RAILWAY VARIABLES
-    # ========================================================
+                                                         
+                                                              
     gcp_service_account = json.loads(
         os.environ["gcp_service_account"]
     )
 
     spreadsheet_url = os.environ["spreadsheet_url"]
 
-    # ========================================================
-    # BUAT CREDENTIALS
-    # ========================================================
+                      
+                                                              
     creds = Credentials.from_service_account_info(
         gcp_service_account,
         scopes=scopes,
@@ -699,9 +688,8 @@ def connect_sheet():
 
     spreadsheet = client.open_by_url(spreadsheet_url)
 
-    # ========================================================
-    # WORKSHEET
-    # ========================================================
+               
+                                                              
     ws_pesanan = spreadsheet.worksheet(NAMA_WORKSHEET_PESANAN)
     ws_produk_sniper = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK_SNIPER)
     ws_produk_matengan = spreadsheet.worksheet(NAMA_WORKSHEET_PRODUK_MATENGAN)
@@ -722,7 +710,6 @@ def connect_sheet():
         )
 
     return ws_pesanan, ws_produk_sniper, ws_produk_matengan, ws_status
-
 
 try:
     (
@@ -746,9 +733,7 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-# ============================================================
-# LOAD PRODUK
-# ============================================================
+             
 
 @st.cache_data(ttl=60)
 def load_produk(_worksheet_produk, kategori_key):
@@ -766,18 +751,13 @@ def load_produk(_worksheet_produk, kategori_key):
 
     return df
 
-# Catatan: produk_df (dan qty state yang bergantung padanya) baru
-# dimuat setelah pengguna memilih Kategori (Sniper/Matengan) di
-# bagian "PILIH KATEGORI" di bawah, supaya sheet yang dibaca sesuai
-# kategori yang aktif.
+                                                               
 
-# ============================================================
-# SESSION STATE (UMUM — TIDAK BERGANTUNG PADA PRODUK)
-# ============================================================
-# Hanya satu sumber data untuk qty: st.session_state.qty (diinisialisasi
-# nanti setelah produk_df tersedia). Tidak ada state dengan key
-# qtyinput_*, sehingga tidak mungkin terjadi konflik antara default
-# value widget dan Session State API.
+                                                              
+
+                                                                        
+
+                                     
 
 if "last_receipt" not in st.session_state:
     st.session_state.last_receipt = None
@@ -792,26 +772,23 @@ if "last_cs_wa_link" not in st.session_state:
 if "last_order_id" not in st.session_state:
     st.session_state.last_order_id = None
 
-# Input SN (Serial Number) per kode_voucher: {kode: {"awal": str, "akhir": str}}
 if "sn_input" not in st.session_state:
     st.session_state.sn_input = {}
-# Mode input SN per kode_voucher: "SN Berurutan" atau "SN Acak"
+                                                               
 if "sn_mode" not in st.session_state:
     st.session_state.sn_mode = {}
-# Isi kotak-kotak SN mode "SN Acak" per kode_voucher -> list of str
+                                                                   
 if "sn_manual" not in st.session_state:
     st.session_state.sn_manual = {}
-# Daftar SN dari file .txt per kode_voucher -> list of str
+                                                          
 if "sn_upload" not in st.session_state:
     st.session_state.sn_upload = {}
-
 
 def _parse_qty(value):
     try:
         return max(0, int(str(value).strip() or "0"))
     except (TypeError, ValueError):
         return 0
-
 
 def generate_sn_list(sn_awal, sn_akhir):
     """
@@ -850,7 +827,6 @@ def generate_sn_list(sn_awal, sn_akhir):
 
     return list_sn, None
 
-
 def validate_sn_manual_list(list_input):
     """
     Validasi input SN mode 'SN Acak' — satu kotak per SN (SN #1, #2, dst).
@@ -875,7 +851,6 @@ def validate_sn_manual_list(list_input):
 
     return list_sn, None
 
-
 def parse_sn_upload_file(uploaded_file):
     """
     Membaca file .txt berisi SN, satu SN per baris.
@@ -889,7 +864,7 @@ def parse_sn_upload_file(uploaded_file):
     try:
         raw = uploaded_file.getvalue()
 
-        MAX_TXT_SIZE = 10 * 1024 * 1024  # 10 MB
+        MAX_TXT_SIZE = 10 * 1024 * 1024         
         if len(raw) > MAX_TXT_SIZE:
             return [], "Ukuran file TXT maksimal 10 MB."
 
@@ -907,20 +882,16 @@ def parse_sn_upload_file(uploaded_file):
 
     return validate_sn_manual_list(list_sn)
 
-
 def tambah(kode):
     st.session_state.qty[kode] = st.session_state.qty.get(kode, 0) + 1
-
 
 def kurang(kode):
     st.session_state.qty[kode] = max(
         0, st.session_state.qty.get(kode, 0) - 1
     )
 
-
 def format_rupiah(n):
     return f"Rp {n:,.0f}".replace(",", ".")
-
 
 def sn_sebagai_teks(sn):
     """
@@ -947,12 +918,10 @@ def sn_sebagai_teks(sn):
 
     return f"'{sn}"
 
-
 def buat_order_id():
     now = now_wib()
     acak = random.randint(100, 999)
     return f"ORD-{now.strftime('%y%m%d-%H%M%S')}-{acak}"
-
 
 def format_no_wa(no_wa):
     digits = "".join(ch for ch in no_wa if ch.isdigit())
@@ -965,7 +934,6 @@ def format_no_wa(no_wa):
         digits = "62" + digits
 
     return digits
-
 
 def build_nota_wa_text(
     order_id,
@@ -1018,7 +986,6 @@ def build_nota_wa_text(
     )
 
     return "\n".join(baris)
-
 
 def build_konfirmasi_cs_text(
     order_id,
@@ -1073,7 +1040,6 @@ def build_konfirmasi_cs_text(
 
     return "\n".join(baris)
 
-
 def build_receipt_lines(
     order_id,
     nama_outlet,
@@ -1122,7 +1088,6 @@ def build_receipt_lines(
 
     return lines
 
-
 def _load_font(size, bold=False):
     kandidat = (
         ["consolab.ttf", "courbd.ttf"]
@@ -1137,7 +1102,6 @@ def _load_font(size, bold=False):
             continue
 
     return ImageFont.load_default()
-
 
 def build_receipt_image(
     order_id,
@@ -1262,10 +1226,7 @@ def build_receipt_image(
     img.save(buf, format="PNG")
     return buf.getvalue()
 
-
-# ============================================================
-# HELPER STATUS KIRIM
-# ============================================================
+                                                              
 
 def get_status_map(ws_status):
     """Baca worksheet StatusKirim -> dict {order_id: True/False}."""
@@ -1287,7 +1248,6 @@ def get_status_map(ws_status):
 
     return status_map
 
-
 def tandai_terkirim(ws_status, order_id):
     """Catat order_id sebagai sudah terkirim."""
     ws_status.append_row(
@@ -1298,7 +1258,6 @@ def tandai_terkirim(ws_status, order_id):
         ],
         value_input_option="USER_ENTERED",
     )
-
 
 def batalkan_tandai(ws_status, order_id):
     """Undo: hapus baris status_kirim untuk order_id."""
@@ -1311,10 +1270,7 @@ def batalkan_tandai(ws_status, order_id):
         if cell.col == 1:
             ws_status.delete_rows(cell.row)
 
-
-# ============================================================
-# HEADER
-# ============================================================
+                                                              
 
 st.markdown(
     """
@@ -1332,9 +1288,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ============================================================
-# DATA OUTLET
-# ============================================================
+             
 
 st.subheader("Data Outlet")
 
@@ -1360,9 +1314,7 @@ alamat_pengiriman = st.text_input(
 st.caption("Alamat pengiriman hanya untuk transaksi Fisik Matengan")
 st.divider()
 
-# ============================================================
-# PILIH KATEGORI
-# ============================================================
+                
 
 st.subheader("Pilih Kategori")
 
@@ -1386,7 +1338,6 @@ if produk_df.empty:
     )
     st.stop()
 
-# Qty state bergantung pada daftar produk kategori yang sedang aktif.
 if "qty" not in st.session_state:
     st.session_state.qty = {kode: 0 for kode in produk_df["kode_voucher"]}
 else:
@@ -1404,9 +1355,7 @@ if st.session_state.get("_do_reset_qty"):
 
 st.divider()
 
-# ============================================================
-# FILTER PRODUK
-# ============================================================
+               
 
 st.subheader("Pilih Provider")
 
@@ -1447,16 +1396,13 @@ if keyword:
         .str.contains(kw, na=False)
     ]
 
-# ============================================================
-# PAGINATION PRODUK (15 produk / halaman -> 5 baris x 3 kolom)
-# ============================================================
+                                                              
 
 ITEMS_PER_PAGE = 15
 
 total_produk_filter = len(produk_tampil)
-total_halaman = max(1, -(-total_produk_filter // ITEMS_PER_PAGE))  # ceil division
+total_halaman = max(1, -(-total_produk_filter // ITEMS_PER_PAGE))                 
 
-# Reset ke halaman 1 setiap kali filter provider / keyword berubah
 filter_key = f"{provider_terpilih}|{keyword}"
 if st.session_state.get("_last_filter_key") != filter_key:
     st.session_state["_last_filter_key"] = filter_key
@@ -1465,7 +1411,6 @@ if st.session_state.get("_last_filter_key") != filter_key:
 if "halaman_produk" not in st.session_state:
     st.session_state["halaman_produk"] = 1
 
-# Jaga-jaga kalau halaman_produk kebesaran (misal filter berubah jadi lebih sedikit)
 halaman_sekarang = min(st.session_state["halaman_produk"], total_halaman)
 st.session_state["halaman_produk"] = halaman_sekarang
 
@@ -1481,9 +1426,7 @@ st.caption(
     f"(Halaman {halaman_sekarang} dari {total_halaman})"
 )
 
-# ============================================================
-# DAFTAR PRODUK
-# ============================================================
+               
 
 produk_list = produk_tampil_halaman.to_dict("records")
 JUMLAH_KOLOM = 3
@@ -1546,10 +1489,9 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                 )
 
                             with c_qty:
-                                # Widget input TIDAK memakai key Session State.
-                                # Nilainya selalu berasal dari qty sebagai satu-satunya
-                                # sumber data. Ini sengaja untuk menghindari seluruh
-                                # konflik "default value + Session State API".
+
+                                                                                    
+                                                                              
                                 teks_qty = st.text_input(
                                     f"Jumlah {kode}",
                                     value=str(qty_sekarang),
@@ -1558,7 +1500,6 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     placeholder="0",
                                 )
 
-                                # Saat user mengetik, langsung sinkronkan ke qty.
                                 nilai_ketik = _parse_qty(teks_qty)
                                 if nilai_ketik != st.session_state.qty.get(kode, 0):
                                     st.session_state.qty[kode] = nilai_ketik
@@ -1574,14 +1515,11 @@ for i in range(0, len(produk_list), JUMLAH_KOLOM):
                                     use_container_width=True,
                                 )
 
-# ============================================================
-# HITUNG TOTAL
-# Sengaja dihitung SETELAH loop render produk di atas (bukan
-# sebelumnya), supaya kalau user baru saja ngetik manual di kotak
-# qty, st.session_state.qty yang dipakai di sini sudah versi
-# ter-update — jadi Ringkasan Pesanan langsung ikut berubah di
-# render yang sama, tanpa perlu rerun kedua.
-# ============================================================
+              
+
+                                                            
+
+                                                              
 
 total_harga = 0
 detail_pesanan = []
@@ -1605,9 +1543,7 @@ for _, row in produk_df.iterrows():
             }
         )
 
-# ============================================================
-# KONTROL PAGINATION (Sebelumnya / Nomor Halaman / Selanjutnya)
-# ============================================================
+                                                               
 
 def _daftar_nomor_halaman(halaman_aktif, total):
     """
@@ -1638,15 +1574,13 @@ def _daftar_nomor_halaman(halaman_aktif, total):
 
     return hasil
 
-
 if total_halaman > 1:
     pagination_box = st.container(key="wg-pagination")
 
     with pagination_box:
         daftar_nomor = _daftar_nomor_halaman(halaman_sekarang, total_halaman)
 
-        # Rasio kolom: panah lebih lebar dikit, nomor sama rata,
-        # elipsis lebih sempit.
+                               
         rasio_kolom = [1.2]
         for n in daftar_nomor:
             rasio_kolom.append(1 if n is not None else 0.5)
@@ -1705,9 +1639,7 @@ if total_halaman > 1:
 
 st.divider()
 
-# ============================================================
-# RINGKASAN + INPUT SERIAL NUMBER (SN)
-# ============================================================
+                                      
 
 sn_semua_valid = False
 
@@ -1720,8 +1652,7 @@ if detail_pesanan:
         df_ringkasan = pd.DataFrame(detail_pesanan).drop(
             columns=["provider", "kode_voucher"]
         )
-        # Ubah kolom angka jadi teks berformat supaya st.dataframe
-        # merender rata kiri (kolom numerik otomatis rata kanan).
+
         df_ringkasan["harga_satuan"] = df_ringkasan["harga_satuan"].apply(
             format_rupiah
         )
@@ -1736,9 +1667,8 @@ if detail_pesanan:
             hide_index=True,
         )
 
-        # Input SN hanya relevan untuk kategori Sniper. Untuk Matengan,
-        # tiap item tetap disimpan 1 baris (tanpa SN) supaya alur
-        # simpan-ke-sheet di bawah tetap konsisten.
+                                                                 
+                                                   
         if kategori_terpilih == "Sniper":
             st.markdown("**Input Serial Number (SN)**")
 
@@ -1779,8 +1709,7 @@ if detail_pesanan:
                 if kode not in st.session_state.sn_manual:
                     st.session_state.sn_manual[kode] = [""] * qty
                 elif len(st.session_state.sn_manual[kode]) != qty:
-                    # Qty berubah (user ubah jumlah) -> sesuaikan jumlah
-                    # kotak, tetap pertahankan SN yang sudah diketik.
+
                     lama = st.session_state.sn_manual[kode]
                     if len(lama) < qty:
                         st.session_state.sn_manual[kode] = lama + [""] * (
@@ -1805,8 +1734,7 @@ if detail_pesanan:
 
                     mode_options = [MODE_BERURUTAN, MODE_ACAK, MODE_UPLOAD]
 
-                    # Jika mode lama tersimpan tetapi sudah tidak ada di opsi,
-                    # kembalikan ke mode pertama agar radio tetap valid.
+                                                                        
                     if st.session_state.sn_mode[kode] not in mode_options:
                         st.session_state.sn_mode[kode] = MODE_BERURUTAN
 
@@ -1821,11 +1749,9 @@ if detail_pesanan:
                         label_visibility="collapsed",
                     )
 
-                    # Ganti mode HANYA mengubah tampilan yang aktif — data
-                    # yang sudah diketik di mode satunya TIDAK dihapus,
-                    # supaya kalau user bolak-balik ganti mode, isian yang
-                    # sudah dibuat tetap tersimpan sampai pesanan benar-
-                    # benar dikirim (baru direset lewat _do_reset_qty).
+                                                                       
+
+                                                                       
                     st.session_state.sn_mode[kode] = mode_terpilih
 
                     if mode_terpilih == MODE_BERURUTAN:
@@ -1883,10 +1809,9 @@ if detail_pesanan:
                                 item["sn_list"] = list_sn
 
                     elif mode_terpilih == MODE_ACAK:
-                        # Mode SN Acak: satu kotak input per SN (SN #1, #2, dst),
-                        # dirender dalam grid 2 kolom + box scrollable supaya
-                        # kompak dan tidak makan banyak ruang vertikal walau
-                        # qty-nya besar.
+
+                                                                            
+                                        
                         st.caption(
                             f"Masukkan SN satu per satu ({qty} dibutuhkan)"
                         )
@@ -1947,8 +1872,7 @@ if detail_pesanan:
                             item["sn_list"] = list_sn
 
                     else:
-                        # Mode SN Upload.txt: satu file TXT untuk SATU produk.
-                        # Isi file harus 1 SN per baris dan maksimal 4000 baris.
+
                         st.caption(
                             f"Upload 1 file .txt untuk {qty} SN "
                             f"(maksimal 4000 baris, 10 MB)"
@@ -2006,19 +1930,14 @@ if detail_pesanan:
                                 if item_valid:
                                     item["sn_list"] = list_upload
 
-                # ----------------------------------------------------------
-                # Validasi akhir per item — dihitung independen dari mode
-                # mana yang SEDANG TAMPIL di radio, langsung dari data
-                # tersimpan di session_state untuk KETIGA mode:
-                #
-                # 1) Outlet cukup mengisi SALAH SATU dari 3 opsi (SN
-                #    Berurutan, SN Acak, atau SN Upload.txt).
-                # 2) Kalau lebih dari satu opsi ternyata terisi lengkap & sesuai
-                #    qty di saat bersamaan, item ini dianggap TIDAK valid
-                #    dan outlet diberi peringatan untuk memilih salah
-                #    satu saja (supaya tidak ambigu SN mana yang mau
-                #    dipakai saat dikirim).
-                # ----------------------------------------------------------
+                                                                         
+
+                 
+
+                                                                                
+
+                                                                    
+
                 data_urut = st.session_state.sn_input.get(kode, {})
                 list_urut, err_urut = generate_sn_list(
                     data_urut.get("awal", ""),
@@ -2103,8 +2022,7 @@ if detail_pesanan:
                     )
 
         else:
-            # Matengan: tidak perlu input SN, tiap item disimpan
-            # sebagai 1 baris dengan kolom sn kosong.
+
             for item in detail_pesanan:
                 item["sn_list"] = [""]
 
@@ -2118,9 +2036,7 @@ if detail_pesanan:
             format_rupiah(total_harga),
         )
 
-# ============================================================
-# SIMPAN PESANAN
-# ============================================================
+                
 
 if st.button(
     "🧾 Kirim Pesanan",
@@ -2144,14 +2060,13 @@ if st.button(
         )
 
     else:
-        # timestamp: format baku untuk disimpan ke Google Sheets.
+                                                                 
         timestamp = now_wib().strftime("%Y-%m-%d %H:%M:%S")
 
         order_id = buat_order_id()
 
-        # Opsi B: 1 baris per SN. Tiap item di-"pecah" jadi sebanyak
-        # SN yang sudah digenerate (list_sn), supaya tiap voucher
-        # individual bisa dilacak lewat kolom "sn" masing-masing.
+                                                                 
+                                                                 
         rows_to_append = [
             [
                 timestamp,
@@ -2178,11 +2093,9 @@ if st.button(
                 value_input_option="USER_ENTERED",
             )
 
-            # Google Sheets bisa memformat ulang tampilan tanggal/jam
-            # saat parsing USER_ENTERED (mis. jam tunggal tanpa nol di
-            # depan seperti "8:21:53"). Supaya template chat WA selalu
-            # sama persis dengan yang ada di kolom timestamp sheet,
-            # ambil langsung nilai selnya setelah tersimpan.
+                                                                      
+
+                                                            
             timestamp_wa = timestamp
             try:
                 updated_range = hasil_append["updates"]["updatedRange"]
@@ -2234,9 +2147,8 @@ if st.button(
                 f"?text={quote(teks_nota)}"
             )
 
-            # ----------------------------------------------------------
-            # Link WA konfirmasi ke CS/Admin (nomor tetap dari secrets)
-            # ----------------------------------------------------------
+                                                                       
+                                                                        
             cs_wa_number = os.environ.get("cs_wa_number")
 
             if cs_wa_number:
@@ -2271,9 +2183,7 @@ if st.button(
             )
             st.exception(e)
 
-# ============================================================
-# STATUS SUKSES
-# ============================================================
+               
 
 if (
     st.session_state.show_success
@@ -2321,10 +2231,7 @@ if (
             st.session_state.show_success = False
             st.rerun()
 
-# ============================================================
-
-# PANEL ADMIN — SIDEBAR
-# ============================================================
+                       
 
 if "admin_fullscreen" not in st.session_state:
     st.session_state.admin_fullscreen = False
@@ -2564,10 +2471,8 @@ with st.sidebar:
                             unsafe_allow_html=True,
                         )
 
-                        # ====================================================
-                        # ACTION BUTTONS
-                        # Kedua tombol dibungkus bersama agar tinggi sama.
-                        # ====================================================
+                                        
+
                         st.markdown(
                             '<div class="wg-admin-actions">',
                             unsafe_allow_html=True,
