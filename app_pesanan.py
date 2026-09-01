@@ -89,7 +89,7 @@ header[data-testid="stHeader"] {
 .wg-header-line1 {
     display: flex !important;
     align-items: center !important;
-    justify-content: flex-start !important;
+    justify-content: center !important;
     gap: 8px !important;
     width: 100% !important;
     font-size: 40px !important;
@@ -97,7 +97,7 @@ header[data-testid="stHeader"] {
     line-height: 1.2 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
-    text-align: left !important;
+    text-align: center !important;
 }
 
 .wg-header-line1 .wg-header-icon {
@@ -653,11 +653,17 @@ div[class*="st-key-snpreview-"] {
 }
 
 /* ========================================================
-   SEMBUNYIKAN KETERANGAN "Limit 200MB per file" BAWAAN
-   st.file_uploader — murni tampilan, tidak mengubah batas
-   upload maupun validasi ukuran file yang sudah ada di kode.
+   SEMBUNYIKAN KETERANGAN "Limit 200MB per file • TXT" BAWAAN
+   st.file_uploader — murni tampilan (elemen <small> saja),
+   tidak menyentuh teks judul dropzone "Drag and drop file here"
+   dan tidak mengubah batas upload/validasi ukuran file yang
+   sudah ada di kode. Beberapa selector dipasang sekaligus
+   supaya tetap kena berapapun versi struktur DOM Streamlit.
    ======================================================== */
-[data-testid="stFileUploaderDropzoneInstructions"] small {
+[data-testid="stFileUploaderDropzoneInstructions"] small,
+[data-testid="stFileUploaderDropzone"] small,
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploaderDropzoneInstructions"] div small {
     display: none !important;
 }
 </style>
