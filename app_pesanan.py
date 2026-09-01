@@ -1689,6 +1689,26 @@ if detail_pesanan:
 
                         list_upload_tersimpan = st.session_state.sn_upload.get(kode, [])
 
+                        # PERBAIKAN: kotak drag-and-drop bawaan Streamlit
+                        # MEMANG akan selalu tampil kosong lagi setiap kali
+                        # widget-nya sempat tidak dirender (pindah opsi lalu
+                        # balik) — ini keterbatasan bawaan Streamlit yang
+                        # tidak bisa dihindari (tidak ada cara resmi untuk
+                        # "mengisi ulang" tampilan file di box tersebut).
+                        # Supaya user tidak salah kira datanya hilang,
+                        # ditambahkan notifikasi yang jelas & tidak
+                        # tersembunyi di expander, mengonfirmasi SN dari
+                        # file sebelumnya tetap tersimpan dan tetap dipakai
+                        # untuk pesanan meski box terlihat kosong.
+                        if uploaded_sn_file is None and list_upload_tersimpan:
+                            st.info(
+                                f"📎 File SN sebelumnya masih tersimpan "
+                                f"({len(list_upload_tersimpan)} SN). Tidak perlu "
+                                f"upload ulang — kotak di atas memang tampil "
+                                f"kosong lagi, tapi datanya tetap dipakai. "
+                                f"Upload file baru hanya jika ingin mengganti."
+                            )
+
                         if list_upload_tersimpan:
                             jumlah_upload = len(list_upload_tersimpan)
                             item_valid = jumlah_upload == qty
