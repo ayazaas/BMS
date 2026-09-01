@@ -89,22 +89,22 @@ header[data-testid="stHeader"] {
 .wg-header-line1 {
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     gap: 8px !important;
     width: 100% !important;
-    font-size: 36px !important;
+    font-size: 40px !important;
     font-weight: 800 !important;
     line-height: 1.2 !important;
     color: #1a1a1a !important;
     white-space: nowrap !important;
-    text-align: center !important;
+    text-align: left !important;
 }
 
 .wg-header-line1 .wg-header-icon {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 36px !important;
+    font-size: 40px !important;
     line-height: 1 !important;
     flex: 0 0 auto !important;
 }
@@ -650,6 +650,15 @@ div[class*="st-key-snpreview-"] {
     .wg-sn-preview-row {
         font-size: 0.76rem !important;
     }
+}
+
+/* ========================================================
+   SEMBUNYIKAN KETERANGAN "Limit 200MB per file" BAWAAN
+   st.file_uploader — murni tampilan, tidak mengubah batas
+   upload maupun validasi ukuran file yang sudah ada di kode.
+   ======================================================== */
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+    display: none !important;
 }
 </style>
 
