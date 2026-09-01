@@ -2034,7 +2034,15 @@ with st.sidebar:
                     baris_order = df_semua[df_semua["order_id"] == oid]
                     first_row = baris_order.iloc[0]
 
-                    total_order = pd.to_numeric(baris_order["subtotal"], errors="coerce").sum()
+                    # PERBAIKAN: satu produk bisa punya beberapa baris di
+                    # sheet Pesanan (satu baris per SN), sehingga qty &
+                    # subtotal produk tersebut ikut terduplikasi sebanyak
+                    # jumlah SN-nya. Dedup dulu berdasarkan kode_voucher
+                    # supaya tiap produk cuma dihitung SATU KALI saat
+                    # menjumlahkan total & menampilkan detail pesanan.
+                    baris_order_unik = baris_order.drop_duplicates(subset="kode_voucher")
+
+                    total_order = pd.to_numeric(baris_order_unik["subtotal"], errors="coerce").sum()
 
                     daftar_order.append({
                         "order_id": oid,
@@ -2042,7 +2050,7 @@ with st.sidebar:
                         "no_wa": first_row.get("no_wa", ""),
                         "alamat_pengiriman": first_row.get("alamat_pengiriman", ""),
                         "timestamp": first_row.get("timestamp", ""),
-                        "baris_order": baris_order,
+                        "baris_order": baris_order_unik,
                         "total": total_order,
                         "terkirim": status_map.get(str(oid), False),
                     })
