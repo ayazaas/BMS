@@ -9,6 +9,7 @@ import io
 import random
 import gspread
 from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials as OAuthCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from PIL import Image, ImageDraw, ImageFont
@@ -33,8 +34,625 @@ st.set_page_config(
 st.html(
     """
 <style>
-/* CSS tidak diubah — sama persis seperti file asli kamu, dipangkas di sini */
+/* ========================================================
+   GLOBAL MOBILE / DESKTOP
+   ======================================================== */
+.block-container {
+    padding-top: clamp(1rem, 3vw, 2.5rem) !important;
+    padding-bottom: 5rem !important;
+}
+
+/* ========================================================
+   HEADER / JUDUL — supaya judul & ikon tidak terpotong di HP
+   Header Streamlit (hamburger menu, dsb) posisinya fixed/overlay
+   di atas konten. Di layar sempit, padding-top bawaan tidak
+   cukup untuk membuat judul turun di bawah header tersebut,
+   sehingga bagian atas huruf/ikon judul terpotong.
+   ======================================================== */
+header[data-testid="stHeader"] {
+    height: 2.75rem !important;
+    background: transparent !important;
+}
+
+.block-container h1 {
+    overflow: visible !important;
+    line-height: 1.35 !important;
+    word-break: break-word !important;
+    margin-top: 0 !important;
+}
+
+.block-container h1 > div,
+.block-container h1 span {
+    overflow: visible !important;
+}
+
+@media (max-width: 600px) {
+    .block-container {
+        padding-top: 3.6rem !important;
+    }
+
+    .block-container h1 {
+        line-height: 1.4 !important;
+    }
+}
+
+/* ========================================================
+   HEADER STATIS (2 BARIS) — TIDAK RESPONSIVE
+   Ukuran font memakai px tetap (bukan clamp/vw/rem responsif)
+   supaya tampilan header sama persis di PC, laptop, maupun HP.
+   ======================================================== */
+.wg-header {
+    margin: 0 0 0.45rem 0 !important;
+    text-align: center !important;
+}
+
+.wg-header-line1 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    color: #1a1a1a !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+}
+
+.wg-header-line1 .wg-header-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 36px !important;
+    line-height: 1 !important;
+    flex: 0 0 auto !important;
+}
+
+.wg-header-line2 {
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    line-height: 1.3 !important;
+    color: #30323d !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+}
+
+.wg-header-desc {
+    text-align: center !important;
+    font-size: 15px !important;
+    line-height: 1.4 !important;
+    color: rgba(49, 51, 63, 0.65) !important;
+    margin: 0.15rem auto 0.8rem !important;
+}
+
+/* Ukuran subheader ("Data Outlet", "Pilih Provider") dikunci dengan
+   px tetap dan dibuat lebih kecil dari header utama di atas, supaya
+   hirarki ukuran (Header > Subheader) sama persis di semua device.
+   Margin atas/bawahnya juga dirapatkan supaya tidak banyak ruang
+   kosong di sekitar tiap judul section. */
+.block-container h3 {
+    font-size: 20px !important;
+    line-height: 1.35 !important;
+    white-space: nowrap !important;
+    margin-top: 0.3rem !important;
+    margin-bottom: 0.2rem !important;
+}
+
+/* Rapatkan garis pembatas (divider) antar section utama, supaya
+   tidak ada jarak besar yang terbuang sia-sia. */
+.block-container hr {
+    margin: 0.5rem 0 !important;
+}
+
+/* Rapatkan jarak bawah widget umum (dropdown/input) di luar
+   product card, tanpa mengubah spacing di dalam card produk
+   (yang sudah diatur khusus lewat aturan stVerticalBlockBorderWrapper
+   di bawah dan menang karena urutannya lebih akhir). */
+.block-container div[data-testid="element-container"] {
+    margin-bottom: 0.3rem !important;
+}
+
+/* ========================================================
+   PRODUCT CARD
+   ======================================================== */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 12px !important;
+    padding: 0.45rem 0.5rem !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stVerticalBlock"] {
+    gap: 0.05rem !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="element-container"] {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stMarkdownContainer"] p,
+div[data-testid="stVerticalBlockBorderWrapper"]
+[data-testid="stCaptionContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.1 !important;
+}
+
+/* Nama produk & provider dirender lewat HTML custom (bukan
+   st.markdown + st.caption terpisah) supaya jaraknya bisa
+   dikontrol persis dan tidak renggang seperti bawaan Streamlit. */
+.wg-prod-name {
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    line-height: 1.25 !important;
+    color: #1a1a1a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.wg-prod-provider {
+    font-size: 0.78rem !important;
+    line-height: 1.15 !important;
+    color: rgba(49, 51, 63, 0.6) !important;
+    margin: 0.05rem 0 0 0 !important;
+    padding: 0 !important;
+}
+
+/* ========================================================
+   QTY BOX: - | ANGKA | +
+   Target langsung via key (bukan posisi/nth-child) supaya
+   tidak rapuh terhadap elemen tambahan di DOM.
+   ======================================================== */
+div[class*="st-key-qtybox-"] {
+    margin-top: 0.05rem !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    border: 1px solid rgba(49, 51, 63, 0.20) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: rgba(250, 250, 250, 0.8) !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-qtybox-"] [data-testid="stColumn"],
+div[class*="st-key-qtybox-"] [data-testid="stVerticalBlock"],
+div[class*="st-key-qtybox-"] [data-testid="element-container"],
+div[class*="st-key-qtybox-"] [data-testid="stElementContainer"] {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Tombol MINUS & PLUS ditembak langsung lewat key-nya sendiri */
+div[class*="st-key-qty_minus_"],
+div[class*="st-key-qty_plus_"] {
+    width: 100% !important;
+}
+
+div[class*="st-key-qty_minus_"] button,
+div[class*="st-key-qty_plus_"] button {
+    width: 100% !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #30323d !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+div[class*="st-key-qty_minus_"] button *,
+div[class*="st-key-qty_plus_"] button * {
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
+
+div[class*="st-key-qty_minus_"] button:hover,
+div[class*="st-key-qty_plus_"] button:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #111 !important;
+}
+
+div[class*="st-key-qty_minus_"] button:active,
+div[class*="st-key-qty_plus_"] button:active {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Garis pemisah pil: minus di kiri, plus di kanan */
+div[class*="st-key-qty_minus_"] {
+    border-right: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
+
+div[class*="st-key-qty_plus_"] {
+    border-left: 1px solid rgba(49, 51, 63, 0.15) !important;
+}
+
+/* Input angka di tengah — tetap bisa diketik manual.
+   Hanya background/border/padding lapisan bawaan Streamlit yang
+   dinolkan (bukan display/height dipaksa flex ke semua div),
+   supaya struktur internal komponen input tidak rusak dan angka
+   tetap tampil & bisa diklik +/- seperti biasa. */
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] {
+    width: 100% !important;
+    background: transparent !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] > div {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="input"],
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-qtybox-"] div[data-testid="stTextInput"] input {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    padding: 0 4px !important;
+    margin: 0 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    color: #30323d !important;
+}
+
+div[class*="st-key-qtybox-"] [data-testid="InputInstructions"] {
+    display: none !important;
+}
+
+/* ========================================================
+   PAGINATION PRODUK
+   Dipaksa tetap satu baris (tidak stack) di layar sempit/HP,
+   dengan lebar kiri-kanan simetris. Tombol nomor halaman
+   memakai ukuran seragam & kompak.
+   ======================================================== */
+div[class*="st-key-wg-pagination"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+}
+
+div[class*="st-key-wg-pagination"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
+
+div[class*="st-key-wg-pagination"] .stButton > button {
+    width: 100% !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    min-width: 0 !important;
+    padding: 0 0.2rem !important;
+    font-size: 0.78rem !important;
+    white-space: nowrap !important;
+}
+
+div[class*="st-key-wg-pagination"] .wg-pagination-ellipsis {
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.8rem !important;
+    color: rgba(49, 51, 63, 0.45) !important;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 480px) {
+    div[class*="st-key-wg-pagination"] .stButton > button {
+        font-size: 0.7rem !important;
+        padding: 0 0.1rem !important;
+    }
+
+    div[class*="st-key-wg-pagination"] .wg-pagination-ellipsis {
+        font-size: 0.75rem !important;
+    }
+}
+
+/* ========================================================
+   PANEL ADMIN
+   ======================================================== */
+section[data-testid="stSidebar"]
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 10px !important;
+    padding: 0.7rem 0.85rem !important;
+}
+
+.wg-admin-card-total {
+    font-size: 0.86rem;
+    color: rgba(49, 51, 63, 0.72);
+}
+
+.wg-admin-empty {
+    color: rgba(49, 51, 63, 0.55);
+    font-size: 0.85rem;
+    padding: 0.35rem 0;
+}
+
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0 !important;
+}
+
+/* ========================================================
+   ADMIN ACTION BUTTONS
+   Kirim WhatsApp dan Tandai/Batalkan dibuat sama tinggi
+   ======================================================== */
+.wg-admin-actions {
+    width: 100% !important;
+}
+
+.wg-admin-actions .stButton,
+.wg-admin-actions [data-testid="stLinkButton"] {
+    width: 100% !important;
+}
+
+.wg-admin-actions .stButton > button,
+.wg-admin-actions [data-testid="stLinkButton"] {
+    width: 100% !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 0.65rem !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+}
+
+.wg-admin-actions .stButton > button p,
+.wg-admin-actions .stButton > button div,
+.wg-admin-actions [data-testid="stLinkButton"] p,
+.wg-admin-actions [data-testid="stLinkButton"] div {
+    margin: 0 !important;
+    line-height: 1.1 !important;
+}
+
+/* ========================================================
+   ADMIN FULLSCREEN
+   ======================================================== */
+body.wg-admin-fullscreen section[data-testid="stSidebar"] {
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    z-index: 1000000 !important;
+}
+
+body.wg-admin-fullscreen section[data-testid="stSidebar"] > div {
+    width: 100vw !important;
+}
+
+body.wg-admin-fullscreen section[data-testid="stSidebarContent"] {
+    max-width: 1180px !important;
+    margin: 0 auto !important;
+    padding: 2rem clamp(1rem, 4vw, 3rem) 4rem !important;
+}
+
+body.wg-admin-fullscreen .main {
+    visibility: hidden !important;
+}
+
+/* Catatan: ukuran tombol qty & padding card SENGAJA tidak diberi
+   override khusus mobile lagi, supaya tampilannya statis/sama
+   persis baik dibuka di PC, laptop, maupun HP. */
+
+/* ========================================================
+   BARIS HARGA + QTY (SATU BARIS, QTY DI SEBELAH KANAN HARGA)
+   flex-wrap: nowrap dipaksa supaya harga & kontrol qty selalu
+   sejajar dalam satu baris di device manapun (tidak pernah
+   turun/stack ke bawah seperti perilaku default kolom Streamlit
+   di layar sempit).
+   ======================================================== */
+div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+}
+
+div[class*="st-key-pricerow-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
+
+/* ========================================================
+   SN ACAK — GRID 2 KOLOM, KOMPAK, SCROLLABLE
+   Dibungkus dalam box dengan tinggi maksimal supaya kalau qty
+   banyak (mis. >8 SN), kotaknya nggak makin memanjangkan
+   halaman ke bawah — cukup scroll di dalam box-nya saja.
+   ======================================================== */
+div[class*="st-key-snmanual-"] {
+    max-height: 260px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.5rem 0.6rem 0.2rem 0.2rem !important;
+    border: 1px solid rgba(49, 51, 63, 0.15) !important;
+    border-radius: 8px !important;
+    background: rgba(250, 250, 250, 0.6) !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="element-container"] {
+    margin-bottom: 0.35rem !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] label {
+    font-size: 0.72rem !important;
+    margin-bottom: 0.05rem !important;
+    line-height: 1.1 !important;
+    color: rgba(49, 51, 63, 0.7) !important;
+}
+
+div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] input {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.82rem !important;
+}
+
+@media (max-width: 480px) {
+    div[class*="st-key-snmanual-"] {
+        max-height: 220px !important;
+    }
+
+    div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] label {
+        font-size: 0.68rem !important;
+    }
+
+    div[class*="st-key-snmanual-"] div[data-testid="stTextInput"] input {
+        height: 30px !important;
+        min-height: 30px !important;
+        font-size: 0.78rem !important;
+        padding: 0.15rem 0.4rem !important;
+    }
+}
+
+/* ========================================================
+   KARTU PER-ITEM INPUT SN — tampilan lebih rapi/profesional
+   Satu produk = satu kartu (judul, mode, input, preview),
+   supaya batas antar produk jelas dan tidak menyatu jadi teks
+   panjang tanpa struktur.
+   ======================================================== */
+div[class*="st-key-snitem-"] {
+    border: 1px solid rgba(49, 51, 63, 0.12) !important;
+    border-radius: 12px !important;
+    padding: 0.8rem 0.9rem 0.6rem !important;
+    margin-bottom: 0.7rem !important;
+    background: rgba(250, 250, 250, 0.55) !important;
+}
+
+.wg-sn-item-title {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: #1a1a1a !important;
+    line-height: 1.3 !important;
+    margin: 0 0 0.5rem 0 !important;
+}
+
+.wg-sn-item-qty {
+    font-weight: 400 !important;
+    color: rgba(49, 51, 63, 0.6) !important;
+    font-size: 0.82rem !important;
+}
+
+div[class*="st-key-snitem-"] div[data-testid="stRadio"] {
+    margin-bottom: 0.3rem !important;
+}
+
+div[class*="st-key-snitem-"] div[data-testid="stRadio"] label {
+    font-size: 0.85rem !important;
+}
+
+div[class*="st-key-snitem-"] [data-testid="stExpander"] {
+    border-radius: 8px !important;
+    margin-top: 0.3rem !important;
+}
+
+div[class*="st-key-snitem-"] [data-testid="stExpander"] summary {
+    font-size: 0.82rem !important;
+    padding: 0.5rem 0.7rem !important;
+}
+
+/* ========================================================
+   PREVIEW HASIL SN (Berurutan MAUPUN Acak) — sama-sama
+   scrollable & monospace, supaya konsisten & tidak melebarkan
+   halaman meski jumlah SN-nya banyak.
+   ======================================================== */
+div[class*="st-key-snpreview-"] {
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.5rem 0.75rem !important;
+    border: 1px solid rgba(49, 51, 63, 0.12) !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+}
+
+.wg-sn-preview-row {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+    font-size: 0.8rem !important;
+    line-height: 1.7 !important;
+    color: #2c2c2c !important;
+    white-space: nowrap !important;
+}
+
+.wg-sn-preview-idx {
+    display: inline-block !important;
+    width: 26px !important;
+    color: rgba(49, 51, 63, 0.42) !important;
+}
+
+@media (max-width: 480px) {
+    div[class*="st-key-snpreview-"] {
+        max-height: 180px !important;
+    }
+
+    .wg-sn-preview-row {
+        font-size: 0.76rem !important;
+    }
+}
 </style>
+
 """,
     unsafe_allow_javascript=True,
 )
@@ -83,14 +701,30 @@ def connect_sheet():
 
 @st.cache_resource
 def connect_drive():
-    """Koneksi ke Google Drive API pakai service account yang sama."""
-    scopes = ["https://www.googleapis.com/auth/drive"]
+    """
+    Koneksi ke Google Drive API memakai OAuth atas nama akun Gmail
+    pribadi (BUKAN service account), supaya upload file kena kuota
+    Drive akun kamu sendiri — service account tidak punya kuota
+    penyimpanan sendiri, jadi tidak bisa dipakai untuk ini.
 
-    gcp_service_account = json.loads(os.environ["gcp_service_account"])
+    Membutuhkan 3 environment variable:
+    - google_oauth_client_id
+    - google_oauth_client_secret
+    - google_oauth_refresh_token
+    (didapat sekali lewat skrip get_refresh_token.py yang dijalankan
+    lokal di komputer, lihat instruksi terpisah.)
+    """
+    client_id = os.environ["google_oauth_client_id"]
+    client_secret = os.environ["google_oauth_client_secret"]
+    refresh_token = os.environ["google_oauth_refresh_token"]
 
-    creds = Credentials.from_service_account_info(
-        gcp_service_account,
-        scopes=scopes,
+    creds = OAuthCredentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=["https://www.googleapis.com/auth/drive"],
     )
 
     return build("drive", "v3", credentials=creds)
