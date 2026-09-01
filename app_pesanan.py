@@ -1702,11 +1702,10 @@ if detail_pesanan:
                         # untuk pesanan meski box terlihat kosong.
                         if uploaded_sn_file is None and list_upload_tersimpan:
                             st.info(
-                                f"📎 File SN sebelumnya masih tersimpan "
-                                f"({len(list_upload_tersimpan)} SN). Tidak perlu "
-                                f"upload ulang — kotak di atas memang tampil "
-                                f"kosong lagi, tapi datanya tetap dipakai. "
-                                f"Upload file baru hanya jika ingin mengganti."
+                                f"File SN sebelumnya masih tersimpan sebanyak "
+                                f"{len(list_upload_tersimpan)} SN, sehingga tidak "
+                                f"perlu diunggah kembali. Silakan unggah file baru "
+                                f"apabila ingin mengganti data SN sebelumnya."
                             )
 
                         if list_upload_tersimpan:
