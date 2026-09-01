@@ -840,6 +840,12 @@ if "sn_upload" not in st.session_state:
     st.session_state.sn_upload = {}
 if "sn_upload_raw" not in st.session_state:
     st.session_state.sn_upload_raw = {}
+if "sn_upload_shown_prev" not in st.session_state:
+    # PERBAIKAN: dipakai untuk membedakan apakah widget file_uploader
+    # SN Upload.txt untuk suatu produk masih tampil sejak render
+    # sebelumnya (mode tidak berpindah) atau baru saja muncul lagi
+    # setelah user sempat pindah ke mode SN Berurutan/Acak.
+    st.session_state.sn_upload_shown_prev = {}
 
 def _parse_qty(value):
     try:
@@ -1242,6 +1248,7 @@ if st.session_state.get("_do_reset_qty"):
     st.session_state.sn_manual = {}
     st.session_state.sn_upload = {}
     st.session_state.sn_upload_raw = {}
+    st.session_state.sn_upload_shown_prev = {}
 
 st.divider()
 
@@ -1527,6 +1534,16 @@ if detail_pesanan:
 
                     st.session_state.sn_mode[kode] = mode_terpilih
 
+                    # PERBAIKAN: kalau produk ini SEDANG TIDAK berada di mode
+                    # Upload.txt, tandai widget uploader-nya sebagai "tidak
+                    # sedang tampil". Ini dipakai nanti supaya saat user
+                    # balik lagi ke mode Upload.txt, sistem tahu bahwa
+                    # kekosongan file dari widget adalah akibat reset
+                    # otomatis Streamlit (widget sempat tidak dirender),
+                    # BUKAN karena user menekan tombol hapus (✕).
+                    if mode_terpilih != MODE_UPLOAD:
+                        st.session_state.sn_upload_shown_prev[kode] = False
+
                     if mode_terpilih == MODE_BERURUTAN:
                         c_sn1, c_sn2 = st.columns(2)
 
@@ -1619,13 +1636,30 @@ if detail_pesanan:
                             help="Satu file untuk produk ini. Tulis 1 SN pada setiap baris. Maksimal 4000 baris.",
                         )
 
-                        if uploaded_sn_file is None:
-                            st.session_state.sn_upload[kode] = []
-                            st.session_state.sn_upload_raw[kode] = None
-                        else:
-                            # TAMBAHAN BARU: simpan bytes mentah file supaya
-                            # masih ada saat "Kirim Pesanan" ditekan, untuk
-                            # diupload ke Google Drive.
+                        # PERBAIKAN: Streamlit "melupakan" file yang sudah
+                        # diupload kalau widget file_uploader ini sempat
+                        # tidak dirender di run sebelumnya (mis. user pindah
+                        # ke mode SN Berurutan/Acak lalu balik lagi ke SN
+                        # Upload.txt) — pada kondisi ini uploaded_sn_file
+                        # akan bernilai None PADAHAL user tidak menekan
+                        # tombol hapus (✕) sama sekali.
+                        #
+                        # widget_tampil_sebelumnya membedakan dua kondisi:
+                        # - True  -> widget ini masih tampil sejak run
+                        #            sebelumnya (mode tidak berpindah) ->
+                        #            None berarti user memang menekan ✕ ->
+                        #            file dihapus.
+                        # - False -> widget baru saja muncul lagi setelah
+                        #            sempat berpindah opsi -> None adalah
+                        #            reset otomatis dari Streamlit, BUKAN
+                        #            aksi user -> file/SN lama yang sudah
+                        #            tersimpan tetap dipertahankan.
+                        widget_tampil_sebelumnya = st.session_state.sn_upload_shown_prev.get(kode, False)
+
+                        if uploaded_sn_file is not None:
+                            # Ada file baru dipilih -> simpan bytes mentahnya
+                            # (untuk diupload ke Google Drive saat "Kirim
+                            # Pesanan" ditekan) dan parse isinya.
                             st.session_state.sn_upload_raw[kode] = uploaded_sn_file.getvalue()
 
                             list_upload, upload_error = parse_sn_upload_file(uploaded_sn_file)
@@ -1637,23 +1671,45 @@ if detail_pesanan:
                                 st.session_state.sn_upload[kode] = []
                             else:
                                 st.session_state.sn_upload[kode] = list_upload
-                                jumlah_upload = len(list_upload)
-                                item_valid = jumlah_upload == qty
 
-                                if item_valid:
-                                    label_preview = f"✅ {jumlah_upload} dari {qty} SN sesuai qty"
-                                else:
-                                    label_preview = (
-                                        f"❌ {jumlah_upload} dari {qty} SN — "
-                                        f"{'kurang' if jumlah_upload < qty else 'lebih'} "
-                                        f"{abs(jumlah_upload - qty)}"
-                                    )
+                        elif widget_tampil_sebelumnya:
+                            # Widget tetap berada di mode Upload.txt sejak
+                            # run sebelumnya, dan sekarang kosong -> user
+                            # benar-benar menekan ✕ pada file yang sedang
+                            # tampil -> hapus data yang tersimpan.
+                            st.session_state.sn_upload[kode] = []
+                            st.session_state.sn_upload_raw[kode] = None
 
-                                with st.expander(label_preview, expanded=False):
-                                    render_sn_preview_box(f"snpreview-upload-{kode}", list_upload)
+                        # else: uploaded_sn_file kosong karena widget baru
+                        # saja muncul lagi setelah user sempat pindah opsi
+                        # -> JANGAN hapus data di sn_upload / sn_upload_raw,
+                        # biarkan tetap seperti sebelum user pindah opsi.
 
-                                if item_valid:
-                                    item["sn_list"] = list_upload
+                        st.session_state.sn_upload_shown_prev[kode] = True
+
+                        list_upload_tersimpan = st.session_state.sn_upload.get(kode, [])
+
+                        if list_upload_tersimpan:
+                            jumlah_upload = len(list_upload_tersimpan)
+                            item_valid = jumlah_upload == qty
+
+                            if item_valid:
+                                label_preview = f"✅ {jumlah_upload} dari {qty} SN sesuai qty"
+                            else:
+                                label_preview = (
+                                    f"❌ {jumlah_upload} dari {qty} SN — "
+                                    f"{'kurang' if jumlah_upload < qty else 'lebih'} "
+                                    f"{abs(jumlah_upload - qty)}"
+                                )
+
+                            if uploaded_sn_file is None:
+                                label_preview += " (file tersimpan dari sebelumnya)"
+
+                            with st.expander(label_preview, expanded=False):
+                                render_sn_preview_box(f"snpreview-upload-{kode}", list_upload_tersimpan)
+
+                            if item_valid:
+                                item["sn_list"] = list_upload_tersimpan
 
                 data_urut = st.session_state.sn_input.get(kode, {})
                 list_urut, err_urut = generate_sn_list(data_urut.get("awal", ""), data_urut.get("akhir", ""))
