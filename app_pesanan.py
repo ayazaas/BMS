@@ -964,7 +964,7 @@ def format_no_wa(no_wa):
 
 def build_nota_wa_text(
     order_id, nama_outlet, no_wa, alamat_pengiriman,
-    timestamp, detail_pesanan, total_harga,
+    timestamp, detail_pesanan, total_harga, link_gmaps="",
 ):
     garis = "━" * 20
 
@@ -982,6 +982,9 @@ def build_nota_wa_text(
 
     if alamat_pengiriman:
         baris.append(f"Alamat   : {alamat_pengiriman}")
+
+    if link_gmaps:
+        baris.append(f"Maps     : {link_gmaps}")
 
     baris.append(garis)
     baris.append("*Detail Pesanan*")
@@ -1003,7 +1006,7 @@ def build_nota_wa_text(
 
 def build_konfirmasi_cs_text(
     order_id, nama_outlet, no_wa, alamat_pengiriman,
-    timestamp, detail_pesanan, total_harga,
+    timestamp, detail_pesanan, total_harga, link_gmaps="",
 ):
     garis = "━" * 20
 
@@ -1020,6 +1023,9 @@ def build_konfirmasi_cs_text(
 
     if alamat_pengiriman:
         baris.append(f"Alamat   : {alamat_pengiriman}")
+
+    if link_gmaps:
+        baris.append(f"Maps     : {link_gmaps}")
 
     baris.append(garis)
     baris.append("*Detail Pesanan*")
@@ -1214,6 +1220,9 @@ with col2:
 alamat_pengiriman = st.text_input("Alamat Pengiriman", placeholder="Jl. Ahmad Yani No. 2")
 
 st.caption("Alamat pengiriman hanya untuk transaksi Fisik Matengan")
+
+link_gmaps = st.text_input("Link Google Maps", placeholder="https://maps.app.goo.gl/xxxxx")
+
 st.divider()
 
 st.subheader("Pilih Kategori")
@@ -1256,7 +1265,34 @@ st.subheader("Pilih Provider")
 
 daftar_provider = sorted(produk_df["provider"].dropna().unique().tolist())
 
-provider_terpilih = st.selectbox("Filter Provider", daftar_provider, label_visibility="collapsed")
+# PERBAIKAN: khusus kategori Sniper, saat pertama kali dibuka provider
+# langsung diarahkan ke "Indosat" (kalau tersedia) sebagai default,
+# supaya user tidak perlu memilih manual dari awal. Setelah itu user
+# tetap bebas mengganti sendiri ke provider lain, dan pilihannya akan
+# tetap dipakai selama kategori Sniper masih aktif (tidak dipaksa
+# balik ke Indosat setiap render).
+if kategori_terpilih == "Sniper" and "provider_terpilih_sniper" not in st.session_state:
+    if "Indosat" in daftar_provider:
+        st.session_state["provider_terpilih_sniper"] = "Indosat"
+    elif daftar_provider:
+        st.session_state["provider_terpilih_sniper"] = daftar_provider[0]
+
+if kategori_terpilih == "Sniper" and daftar_provider:
+    default_provider = st.session_state.get("provider_terpilih_sniper", daftar_provider[0])
+    if default_provider not in daftar_provider:
+        default_provider = daftar_provider[0]
+    index_default_provider = daftar_provider.index(default_provider)
+else:
+    index_default_provider = 0
+
+provider_terpilih = st.selectbox(
+    "Filter Provider", daftar_provider,
+    index=index_default_provider if daftar_provider else 0,
+    label_visibility="collapsed",
+)
+
+if kategori_terpilih == "Sniper":
+    st.session_state["provider_terpilih_sniper"] = provider_terpilih
 
 keyword = st.text_input("Cari produk", placeholder="Contoh: 5GB")
 
@@ -1844,9 +1880,10 @@ if st.button(
             else:
                 file_txt_links[kode] = ""
 
-        # rows_to_append: sama seperti asli, DITAMBAH 1 kolom baru
-        # di PALING KANAN (file_txt_link) — pastikan header di sheet
-        # Pesanan juga sudah ditambah kolom ini di posisi paling kanan.
+        # rows_to_append: sama seperti asli, DITAMBAH kolom link_gmaps
+        # di PALING KANAN (setelah file_txt_link) — pastikan header di
+        # sheet Pesanan juga sudah ditambah kolom ini di posisi paling
+        # kanan.
         rows_to_append = [
             [
                 timestamp,
@@ -1863,6 +1900,7 @@ if st.button(
                 total_harga,
                 sn_sebagai_teks(sn),
                 file_txt_links.get(item["kode_voucher"], ""),
+                link_gmaps,
             ]
             for item in detail_pesanan
             for sn in item["sn_list"]
@@ -1893,7 +1931,7 @@ if st.button(
 
             teks_nota = build_nota_wa_text(
                 order_id, nama_outlet, no_wa, alamat_pengiriman,
-                timestamp_wa, detail_pesanan, total_harga,
+                timestamp_wa, detail_pesanan, total_harga, link_gmaps,
             )
 
             st.session_state.last_wa_link = f"https://wa.me/{nomor_wa_tujuan}?text={quote(teks_nota)}"
@@ -1903,7 +1941,7 @@ if st.button(
             if cs_wa_number:
                 teks_konfirmasi_cs = build_konfirmasi_cs_text(
                     order_id, nama_outlet, no_wa, alamat_pengiriman,
-                    timestamp_wa, detail_pesanan, total_harga,
+                    timestamp_wa, detail_pesanan, total_harga, link_gmaps,
                 )
 
                 nomor_cs_tujuan = format_no_wa(cs_wa_number)
